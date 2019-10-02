@@ -30,6 +30,7 @@ func (g *Manager) Start() {
 	log.Infof("queue = %v", url)
 	log.Infof("polling interval seconds = %v", ctx.PollingIntervalSeconds)
 	log.Infof("drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
+	log.Infof("drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 
 	// create a poller goroutine that reads from sqs and posts to channel
 	log.Info("spawning sqs poller")
@@ -118,7 +119,7 @@ func (g *Manager) handleEvent(event *LifecycleEvent) error {
 	go sendHeartbeat(asgClient, event, recommendedHeartbeatActionInterval)
 
 	// drain action
-	err := drainNode(kubectlPath, event.referencedNode.Name, ctx.DrainTimeoutSeconds)
+	err := drainNode(kubectlPath, event.referencedNode.Name, ctx.DrainTimeoutSeconds, ctx.DrainRetryIntervalSeconds)
 	if err != nil {
 		return err
 	}

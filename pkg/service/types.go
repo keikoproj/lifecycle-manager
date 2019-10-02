@@ -57,11 +57,12 @@ func (g *Manager) CompleteEvent(event LifecycleEvent) {
 }
 
 type ManagerContext struct {
-	KubectlLocalPath       string
-	QueueName              string
-	Region                 string
-	DrainTimeoutSeconds    int64
-	PollingIntervalSeconds int64
+	KubectlLocalPath          string
+	QueueName                 string
+	Region                    string
+	DrainTimeoutSeconds       int64
+	DrainRetryIntervalSeconds int64
+	PollingIntervalSeconds    int64
 }
 
 type LifecycleEvent struct {

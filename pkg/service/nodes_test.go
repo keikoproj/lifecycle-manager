@@ -70,7 +70,7 @@ func Test_GetNodeByInstanceNegative(t *testing.T) {
 
 func Test_DrainNodePositive(t *testing.T) {
 	t.Log("Test_DrainNodePositive: If drain process is successful, process should exit successfully")
-	err := drainNode(stubKubectlPathSuccess, "some-node", 10)
+	err := drainNode(stubKubectlPathSuccess, "some-node", 10, 0)
 	if err != nil {
 		t.Fatalf("drainNode: expected error not to have occured, %v", err)
 	}
@@ -78,7 +78,7 @@ func Test_DrainNodePositive(t *testing.T) {
 
 func Test_DrainNodeNegative(t *testing.T) {
 	t.Log("Test_DrainNodePositive: If drain process is successful, process should exit successfully")
-	err := drainNode(stubKubectlPathFail, "some-node", 10)
+	err := drainNode(stubKubectlPathFail, "some-node", 10, 0)
 	if err == nil {
 		t.Fatalf("drainNode: expected error to have occured, %v", err)
 	}
@@ -86,11 +86,11 @@ func Test_DrainNodeNegative(t *testing.T) {
 
 func Test_RunCommandWithContextTimeout(t *testing.T) {
 	t.Log("Test_DrainNodePositive: If drain process is successful, process should exit successfully")
-	_, err := runCommandWithContext("/bin/sleep", []string{"10"}, 1)
+	err := runCommandWithContext("/bin/sleep", []string{"10"}, 1, 0)
 	if err == nil {
 		t.Fatalf("drainNode: expected error to have occured, %v", err)
 	}
-	expectedErr := "command execution timed out"
+	expectedErr := "All attempts fail:\n#1: command execution timed out"
 	if err.Error() != expectedErr {
 		t.Fatalf("drainNode: expected error message to be: %v, got: %v", expectedErr, err)
 	}

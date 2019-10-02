@@ -24,8 +24,9 @@ var (
 	kubectlLocalPath string
 	nodeName         string
 
-	drainTimeoutSeconds    int
-	pollingIntervalSeconds int
+	drainRetryIntervalSeconds int
+	drainTimeoutSeconds       int
+	pollingIntervalSeconds    int
 )
 
 // serveCmd represents the serve command
@@ -46,11 +47,12 @@ var serveCmd = &cobra.Command{
 
 		// prepare runtime context
 		context := service.ManagerContext{
-			KubectlLocalPath:       kubectlLocalPath,
-			QueueName:              queueName,
-			DrainTimeoutSeconds:    int64(drainTimeoutSeconds),
-			PollingIntervalSeconds: int64(pollingIntervalSeconds),
-			Region:                 region,
+			KubectlLocalPath:          kubectlLocalPath,
+			QueueName:                 queueName,
+			DrainTimeoutSeconds:       int64(drainTimeoutSeconds),
+			PollingIntervalSeconds:    int64(pollingIntervalSeconds),
+			DrainRetryIntervalSeconds: int64(drainRetryIntervalSeconds),
+			Region:                    region,
 		}
 
 		s := service.New(auth, context)
@@ -65,6 +67,7 @@ func init() {
 	serveCmd.Flags().StringVar(&queueName, "queue-name", "", "the name of the SQS queue to consume lifecycle hooks from")
 	serveCmd.Flags().StringVar(&kubectlLocalPath, "kubectl-path", "/usr/local/bin/kubectl", "the path to kubectl binary")
 	serveCmd.Flags().IntVar(&drainTimeoutSeconds, "drain-timeout", 300, "hard time limit for drain")
+	serveCmd.Flags().IntVar(&drainRetryIntervalSeconds, "drain-interval", 30, "interval in seconds for which to retry draining")
 	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
 }
 

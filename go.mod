@@ -3,6 +3,7 @@ module github.com/keikoproj/lifecycle-manager
 go 1.12
 
 require (
+	github.com/avast/retry-go v2.4.1+incompatible
 	github.com/aws/aws-sdk-go v1.25.0
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.0 // indirect

@@ -1,3 +1,5 @@
+# github.com/avast/retry-go v2.4.1+incompatible
+github.com/avast/retry-go
 # github.com/aws/aws-sdk-go v1.25.0
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/session

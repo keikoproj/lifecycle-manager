@@ -44,7 +44,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: lifecycle-manager
-  namespace: kube-system
+  namespace: lifecycle-manager
   labels:
     app: lifecycle-manager
 spec:
@@ -70,7 +70,6 @@ spec:
               memory: 100Mi
           command:
             - /bin/lifecycle-manager
-            - --kubectl-path /usr/local/bin/kubectl
             - --queue-name my-queue
             - --region us-west-2
           volumeMounts:
