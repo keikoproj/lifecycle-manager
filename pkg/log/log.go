@@ -44,7 +44,7 @@ func NewLogger() *logrus.Logger {
 
 func newLogrusLogger() *logrus.Logger {
 	l := logrus.New()
-	l.Level = logrus.DebugLevel
+	l.Level = logrus.InfoLevel
 	return l
 }
 
@@ -64,6 +64,19 @@ func (f Fields) WithFields(f2 Fields) Fields {
 
 func WithFields(fields Fields) Logger {
 	return defaultLogger.WithFields(logrus.Fields(fields))
+}
+
+func SetLevel(logLevel string) {
+	switch logLevel {
+	case "debug":
+		defaultLogger.Level = logrus.DebugLevel
+	case "warning":
+		defaultLogger.Level = logrus.WarnLevel
+	case "info":
+		defaultLogger.Level = logrus.InfoLevel
+	default:
+		defaultLogger.Level = logrus.InfoLevel
+	}
 }
 
 // Debug package-level convenience method.
