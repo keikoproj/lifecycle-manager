@@ -24,7 +24,7 @@ func getQueueURLByName(s sqsiface.SQSAPI, name string) string {
 	return aws.StringValue(resultURL.QueueUrl)
 }
 
-func newPoller(s sqsiface.SQSAPI, chn chan<- *sqs.Message, url string, interval int64) {
+func newQueuePoller(s sqsiface.SQSAPI, chn chan<- *sqs.Message, url string, interval int64) {
 	for {
 		log.Debugln("polling for messages from queue")
 		output, err := s.ReceiveMessage(&sqs.ReceiveMessageInput{

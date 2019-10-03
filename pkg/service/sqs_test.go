@@ -118,7 +118,7 @@ func Test_Poller(t *testing.T) {
 	}
 	url := getQueueURLByName(stubber, fakeQueueName)
 
-	go newPoller(stubber, fakeEventStream, url, 10)
+	go newQueuePoller(stubber, fakeEventStream, url, 10)
 	time.Sleep(time.Duration(1) * time.Second)
 
 	if stubber.timesCalledReceiveMessage == 0 {
