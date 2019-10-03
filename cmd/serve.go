@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"github.com/keikoproj/lifecycle-manager/pkg/service"
 	"github.com/spf13/cobra"
@@ -23,6 +25,11 @@ var (
 	queueName        string
 	kubectlLocalPath string
 	nodeName         string
+	ssmDocument      string
+	logLevel         string
+
+	postDrainCommand bool
+	deleteNode       bool
 
 	drainRetryIntervalSeconds int
 	drainTimeoutSeconds       int
@@ -37,11 +44,13 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// argument validation
 		validate()
+		log.SetLevel(logLevel)
 
 		// prepare auth clients
 		auth := service.Authenticator{
 			ScalingGroupClient: newASGClient(region),
 			SQSClient:          newSQSClient(region),
+			SSMClient:          newSSMClient(region),
 			KubernetesClient:   newKubernetesClient(localMode),
 		}
 
@@ -52,6 +61,9 @@ var serveCmd = &cobra.Command{
 			DrainTimeoutSeconds:       int64(drainTimeoutSeconds),
 			PollingIntervalSeconds:    int64(pollingIntervalSeconds),
 			DrainRetryIntervalSeconds: int64(drainRetryIntervalSeconds),
+			RunCommand:                postDrainCommand,
+			CommandDocument:           ssmDocument,
+			DeleteNode:                deleteNode,
 			Region:                    region,
 		}
 
@@ -63,12 +75,16 @@ var serveCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().StringVar(&localMode, "local-mode", "", "absolute path to kubeconfig")
-	serveCmd.Flags().StringVar(&region, "region", "", "AWS region to operate in")
-	serveCmd.Flags().StringVar(&queueName, "queue-name", "", "the name of the SQS queue to consume lifecycle hooks from")
+	serveCmd.Flags().StringVar(&region, "region", "", "aws region to operate in")
+	serveCmd.Flags().StringVar(&queueName, "queue-name", "", "the name of the sqs queue to consume lifecycle hooks from")
 	serveCmd.Flags().StringVar(&kubectlLocalPath, "kubectl-path", "/usr/local/bin/kubectl", "the path to kubectl binary")
 	serveCmd.Flags().IntVar(&drainTimeoutSeconds, "drain-timeout", 300, "hard time limit for drain")
 	serveCmd.Flags().IntVar(&drainRetryIntervalSeconds, "drain-interval", 30, "interval in seconds for which to retry draining")
-	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
+	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll sqs")
+	serveCmd.Flags().StringVar(&logLevel, "log-level", "info", "set logging verbosity (info, warning, or debug)")
+	serveCmd.Flags().BoolVar(&postDrainCommand, "post-drain-command", false, "submit an aws ssm command after draining")
+	serveCmd.Flags().BoolVar(&deleteNode, "delete-node-object", false, "runs in the context of post-drain-command, will delete node object after command execution")
+	serveCmd.Flags().StringVar(&ssmDocument, "ssm-document", "", "name of an ssm document to use")
 }
 
 func validate() {
@@ -87,11 +103,21 @@ func validate() {
 	}
 
 	if region == "" {
-		log.Fatalf("must provide valid AWS region name")
+		log.Fatalf("must provide valid aws region name")
 	}
 
 	if queueName == "" {
-		log.Fatalf("must provide valid SQS queue name")
+		log.Fatalf("must provide valid sqs queue name")
+	}
+
+	if postDrainCommand {
+		if ssmDocument == "" {
+			log.Fatalf("must provide an ssm document name")
+		}
+	}
+
+	if deleteNode && !postDrainCommand {
+		log.Fatalf("--delete-node-object can only be enabled in the context of --post-drain-command")
 	}
 }
 
@@ -125,12 +151,22 @@ func newSQSClient(region string) sqsiface.SQSAPI {
 	return sqs.New(sess)
 }
 
+func newSSMClient(region string) ssmiface.SSMAPI {
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(region)},
+	)
+	if err != nil {
+		log.Fatalf("failed to create ssm client, %v", err)
+	}
+	return ssm.New(sess)
+}
+
 func newASGClient(region string) autoscalingiface.AutoScalingAPI {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(region)},
 	)
 	if err != nil {
-		log.Fatalf("failed to create sqs client, %v", err)
+		log.Fatalf("failed to create asg client, %v", err)
 	}
 	return autoscaling.New(sess)
 }

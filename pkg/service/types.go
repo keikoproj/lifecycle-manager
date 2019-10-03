@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
+
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
@@ -15,6 +17,7 @@ import (
 type Authenticator struct {
 	ScalingGroupClient autoscalingiface.AutoScalingAPI
 	SQSClient          sqsiface.SQSAPI
+	SSMClient          ssmiface.SSMAPI
 	KubernetesClient   kubernetes.Interface
 }
 
@@ -63,6 +66,9 @@ type ManagerContext struct {
 	DrainTimeoutSeconds       int64
 	DrainRetryIntervalSeconds int64
 	PollingIntervalSeconds    int64
+	RunCommand                bool
+	DeleteNode                bool
+	CommandDocument           string
 }
 
 type LifecycleEvent struct {
@@ -78,6 +84,8 @@ type LifecycleEvent struct {
 	heartbeatInterval    int64
 	referencedNode       v1.Node
 	drainCompleted       bool
+	nodeDeleted          bool
+	commandSucceeded     bool
 }
 
 func (e *LifecycleEvent) IsValid() bool {
@@ -123,3 +131,9 @@ func (e *LifecycleEvent) SetReferencedNode(node v1.Node) { e.referencedNode = no
 
 // SetDrainCompleted is a setter method for status of the drain operation
 func (e *LifecycleEvent) SetDrainCompleted(val bool) { e.drainCompleted = val }
+
+// SetCommandSucceeded is a setter method for status of the command execution operation
+func (e *LifecycleEvent) SetCommandSucceeded(val bool) { e.commandSucceeded = val }
+
+// SetNodeDeleted is a setter method for status of the node deletion operation
+func (e *LifecycleEvent) SetNodeDeleted(val bool) { e.nodeDeleted = val }

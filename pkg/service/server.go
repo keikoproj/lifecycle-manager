@@ -34,7 +34,7 @@ func (g *Manager) Start() {
 
 	// create a poller goroutine that reads from sqs and posts to channel
 	log.Info("spawning sqs poller")
-	go newPoller(auth.SQSClient, stream, url, ctx.PollingIntervalSeconds)
+	go newQueuePoller(auth.SQSClient, stream, url, ctx.PollingIntervalSeconds)
 
 	// process messags from channel
 	for message := range g.eventStream {
@@ -103,6 +103,7 @@ func (g *Manager) handleEvent(event *LifecycleEvent) error {
 	var (
 		kubeClient  = g.authenticator.KubernetesClient
 		asgClient   = g.authenticator.ScalingGroupClient
+		ssmClient   = g.authenticator.SSMClient
 		ctx         = &g.context
 		kubectlPath = ctx.KubectlLocalPath
 	)
@@ -123,8 +124,33 @@ func (g *Manager) handleEvent(event *LifecycleEvent) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("completed drain for node '%v'", event.referencedNode.Name)
+	log.Infof("completed drain for node '%v' -> %v", event.referencedNode.Name, event.EC2InstanceID)
 	event.SetDrainCompleted(true)
+
+	// run-command
+	if ctx.RunCommand {
+		log.Infof("running SSM document: %v on %v -> %v", ctx.CommandDocument, event.referencedNode.Name, event.EC2InstanceID)
+		commandID, err := sendCommand(ssmClient, ctx.CommandDocument, event.EC2InstanceID)
+		if err != nil {
+			return err
+		}
+		log.Infof("waiting for command execution: %v on %v -> %v", commandID, event.referencedNode.Name, event.EC2InstanceID)
+		err = waitForCommand(ssmClient, commandID, event.EC2InstanceID)
+		if err != nil {
+			return err
+		}
+		event.SetCommandSucceeded(true)
+
+		if ctx.DeleteNode {
+			log.Infof("deleting node object '%v'", event.referencedNode.Name)
+			err = deleteNode(kubeClient, event.referencedNode.Name)
+			if err != nil {
+				return err
+			}
+			event.SetNodeDeleted(true)
+		}
+		log.Infof("completed command execution for node '%v' -> %v", event.referencedNode.Name, event.EC2InstanceID)
+	}
 
 	// complete lifecycle action
 	err = completeLifecycleAction(asgClient, *event, ContinueAction)

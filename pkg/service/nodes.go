@@ -35,13 +35,21 @@ func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool
 	return foundNode, false
 }
 
+func deleteNode(kubeClient kubernetes.Interface, nodeName string) error {
+	log.Infof("deleting node '%v'", nodeName)
+	err := kubeClient.CoreV1().Nodes().Delete(nodeName, &metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error {
-	log.Infof("draining node %v", nodeName)
+	log.Infof("draining node '%v'", nodeName)
 
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
-	drainCommand := kubectlPath
 
-	err := runCommandWithContext(drainCommand, drainArgs, timeout, retryInterval)
+	err := runCommandWithContext(kubectlPath, drainArgs, timeout, retryInterval)
 	if err != nil {
 		if err.Error() == "command execution timed out" {
 			log.Warnf("failed to drain node %v, drain command timed-out", nodeName)
