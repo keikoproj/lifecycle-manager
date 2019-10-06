@@ -1,6 +1,8 @@
 package service
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"github.com/keikoproj/lifecycle-manager/pkg/version"
 	"github.com/pkg/errors"
@@ -13,15 +15,19 @@ var (
 	ContinueAction = "CONTINUE"
 	// AbandonAction is the name of the action in case we are unsuccessful in draining
 	AbandonAction = "ABANDON"
+	// ExcludeLabelKey is the alb-ingress-controller exclude label key
+	ExcludeLabelKey = "alpha.service-controller.kubernetes.io/exclude-balancer"
+	// ExcludeLabelValue is the alb-ingress-controller exclude label value
+	ExcludeLabelValue = "true"
 )
 
 // Start starts the lifecycle-manager service
-func (g *Manager) Start() {
+func (mgr *Manager) Start() {
 	var (
-		auth   = g.authenticator
+		auth   = mgr.authenticator
 		queue  = auth.SQSClient
-		ctx    = &g.context
-		stream = g.eventStream
+		ctx    = &mgr.context
+		stream = mgr.eventStream
 		url    = getQueueURLByName(auth.SQSClient, ctx.QueueName)
 	)
 
@@ -37,7 +43,7 @@ func (g *Manager) Start() {
 	go newPoller(auth.SQSClient, stream, url, ctx.PollingIntervalSeconds)
 
 	// process messags from channel
-	for message := range g.eventStream {
+	for message := range mgr.eventStream {
 		event, err := readMessage(message)
 		if err != nil {
 			log.Errorf("failed to read message: %v", err)
@@ -63,29 +69,29 @@ func (g *Manager) Start() {
 
 		// spawn goroutine for processing individual events
 		log.Info("spawning event handler")
-		go g.Process(event)
+		go mgr.Process(event)
 	}
 
 }
 
 // Process processes a received event
-func (g *Manager) Process(event *LifecycleEvent) {
+func (mgr *Manager) Process(event *LifecycleEvent) {
 	var (
-		queue              = g.authenticator.SQSClient
-		scalingGroupClient = g.authenticator.ScalingGroupClient
+		queue              = mgr.authenticator.SQSClient
+		scalingGroupClient = mgr.authenticator.ScalingGroupClient
 		url                = event.queueURL
 	)
 
-	if event.IsAlreadyExist(g.queue) {
+	if event.IsAlreadyExist(mgr.queue) {
 		err := deleteMessage(queue, url, event.receiptHandle)
 		if err != nil {
 			log.Errorf("failed to delete message: %v", err)
 		}
 		return
 	}
-	g.AddEvent(*event)
+	mgr.AddEvent(*event)
 
-	err := g.handleEvent(event)
+	err := mgr.handleEvent(event)
 	if err != nil {
 		log.Errorf("failed to process event: %v", err)
 		log.Warnf("abandoning instance '%v', ", event.EC2InstanceID)
@@ -96,37 +102,114 @@ func (g *Manager) Process(event *LifecycleEvent) {
 	if err != nil {
 		log.Errorf("failed to delete message: %v", err)
 	}
-	g.CompleteEvent(*event)
+	mgr.CompleteEvent(*event)
 }
 
-func (g *Manager) handleEvent(event *LifecycleEvent) error {
+func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
-		kubeClient  = g.authenticator.KubernetesClient
-		asgClient   = g.authenticator.ScalingGroupClient
-		ctx         = &g.context
-		kubectlPath = ctx.KubectlLocalPath
+		ctx           = &mgr.context
+		kubectlPath   = mgr.context.KubectlLocalPath
+		drainTimeout  = ctx.DrainTimeoutSeconds
+		retryInterval = ctx.DrainRetryIntervalSeconds
 	)
-	// validate instance-id exists as a node
-	node, exists := getNodeByInstance(kubeClient, event.EC2InstanceID)
-	if !exists {
-		return errors.Errorf("instance '%v' is not seen in cluster nodes", event.EC2InstanceID)
-	}
-	event.SetReferencedNode(node)
 
-	// send heartbeat at intervals
-	recommendedHeartbeatActionInterval := event.heartbeatInterval / 2
-	log.Infof("hook heartbeat timeout interval is %v, will send heartbeat every %v seconds", event.heartbeatInterval, recommendedHeartbeatActionInterval)
-	go sendHeartbeat(asgClient, event, recommendedHeartbeatActionInterval)
-
-	// drain action
-	err := drainNode(kubectlPath, event.referencedNode.Name, ctx.DrainTimeoutSeconds, ctx.DrainRetryIntervalSeconds)
+	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval)
 	if err != nil {
 		return err
 	}
 	log.Infof("completed drain for node '%v'", event.referencedNode.Name)
 	event.SetDrainCompleted(true)
+	return nil
+}
+
+func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
+	var (
+		kubeClient = mgr.authenticator.KubernetesClient
+		elbClient  = mgr.authenticator.ELBv2Client
+		instanceID = event.EC2InstanceID
+		ctx        = &mgr.context
+		node       = event.referencedNode
+	)
+
+	if !ctx.WithDeregister {
+		return nil
+	}
+
+	// get all target groups
+	targetGroups, err := elbClient.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{})
+	if err != nil {
+		return err
+	}
+
+	for _, tg := range targetGroups.TargetGroups {
+		arn := aws.StringValue(tg.TargetGroupArn)
+
+		// check each target group for matches
+		found, port, err := findInstanceInTargetGroup(elbClient, arn, instanceID)
+		if err != nil {
+			return err
+		}
+
+		if !found {
+			continue
+		}
+
+		// add exclusion label
+		log.Debugf("excluding node '%v' from load balancers", node.Name)
+		err = labelNode(kubeClient, ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
+		if err != nil {
+			return err
+		}
+
+		// deregister from alb
+		log.Debugf("found %v in target group %v, will deregister", instanceID, arn)
+		err = deregisterInstance(elbClient, arn, instanceID, port)
+		if err != nil {
+			return err
+		}
+
+		// waiter for drain
+		log.Infof("%v waiting for alb-drain", arn)
+		err = waitForDeregisterInstance(elbClient, arn, instanceID, port)
+		if err != nil {
+			return err
+		}
+	}
+	event.SetDeregisterCompleted(true)
+	return nil
+}
+
+func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
+	var (
+		kubeClient = mgr.authenticator.KubernetesClient
+		asgClient  = mgr.authenticator.ScalingGroupClient
+		instanceID = event.EC2InstanceID
+	)
+
+	// validate instance-id exists as a node
+	node, exists := getNodeByInstance(kubeClient, instanceID)
+	if !exists {
+		return errors.Errorf("instance '%v' is not seen in cluster nodes", instanceID)
+	}
+	event.SetReferencedNode(node)
+
+	// send heartbeat at intervals
+	go sendHeartbeat(asgClient, event)
+
+	// node drain
+	err := mgr.drainNodeTarget(event)
+	if err != nil {
+		return err
+	}
+
+	// alb-drain action
+	err = mgr.drainLoadbalancerTarget(event)
+	if err != nil {
+		return err
+	}
 
 	// complete lifecycle action
+	event.SetEventCompleted(true)
 	err = completeLifecycleAction(asgClient, *event, ContinueAction)
 	if err != nil {
 		return err

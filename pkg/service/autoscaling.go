@@ -10,16 +10,24 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent, sleepInterval int64) {
+func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent) {
+	var (
+		interval            = event.heartbeatInterval
+		instanceID          = event.EC2InstanceID
+		recommendedInterval = interval / 2
+	)
+
+	log.Infof("hook heartbeat timeout interval is %v, will send heartbeat every %v seconds", interval, recommendedInterval)
 	for {
-		time.Sleep(time.Duration(sleepInterval) * time.Second)
-		if event.drainCompleted {
+
+		time.Sleep(time.Duration(recommendedInterval) * time.Second)
+		if event.eventCompleted {
 			return
 		}
-		log.Infof("sending heartbeat for event with instance '%v' and sleeping for %v seconds", event.EC2InstanceID, sleepInterval)
+		log.Infof("sending heartbeat for event with instance '%v' and sleeping for %v seconds", instanceID, recommendedInterval)
 		err := extendLifecycleAction(client, *event)
 		if err != nil {
-			log.Errorf("failed to send heartbeat for event with instance '%v': %v", event.EC2InstanceID, err)
+			log.Errorf("failed to send heartbeat for event with instance '%v': %v", instanceID, err)
 			return
 		}
 	}
