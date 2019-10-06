@@ -35,8 +35,9 @@ func (mgr *Manager) Start() {
 	log.Infof("region = %v", ctx.Region)
 	log.Infof("queue = %v", url)
 	log.Infof("polling interval seconds = %v", ctx.PollingIntervalSeconds)
-	log.Infof("drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
-	log.Infof("drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
+	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
+	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
+	log.Infof("with alb deregister = %v", ctx.WithDeregister)
 
 	// create a poller goroutine that reads from sqs and posts to channel
 	log.Info("spawning sqs poller")
