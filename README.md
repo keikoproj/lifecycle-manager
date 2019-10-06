@@ -62,6 +62,45 @@ time="2019-10-02T02:44:45Z" level=info msg="sending heartbeat for event with ins
 time="2019-10-02T02:45:15Z" level=info msg="setting lifecycle event as completed with result: 'CONTINUE'"
 ```
 
+### Required AWS Auth / RBAC
+
+#### AWS
+
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "autoscaling:DescribeLifecycleHooks",
+        "autoscaling:CompleteLifecycleAction",
+        "autoscaling:RecordLifecycleActionHeartbeat",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueUrl",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeTargetGroups"
+    ],
+    "Resource": "*"
+}
+```
+
+#### RBAC
+
+```yaml
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["daemonsets"]
+  verbs: ["get"]
+```
+
 ## Release History
 
 Please see [CHANGELOG.md](.github/CHANGELOG.md).
