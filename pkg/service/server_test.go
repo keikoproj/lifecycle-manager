@@ -3,16 +3,19 @@ package service
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/sqs"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
 func Test_Process(t *testing.T) {
-	t.Log("Test_Process: ")
+	t.Log("Test_Process: should process events")
 	asgStubber := &stubAutoscaling{}
 	sqsStubber := &stubSQS{}
 	auth := Authenticator{
@@ -230,4 +233,106 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 	if asgStubber.timesCalledCompleteLifecycleAction != 1 {
 		t.Fatalf("handleEvent: expected timesCalledCompleteLifecycleAction to be 1, got: %v", asgStubber.timesCalledCompleteLifecycleAction)
 	}
+}
+
+func Test_Poller(t *testing.T) {
+	t.Log("Test_Poller: should deliver messages from sqs to channel")
+	var (
+		fakeQueueName   = "my-queue"
+		fakeMessageBody = "message-body"
+		fakeEventStream = make(chan *sqs.Message, 0)
+	)
+	sqsStubber := &stubSQS{
+		FakeQueueName: fakeQueueName,
+		FakeQueueMessages: []*sqs.Message{
+			{
+				Body: aws.String(fakeMessageBody),
+			},
+		},
+	}
+
+	auth := Authenticator{
+		SQSClient: sqsStubber,
+	}
+
+	ctx := ManagerContext{
+		QueueName:              "my-queue",
+		Region:                 "us-west-2",
+		PollingIntervalSeconds: 10,
+	}
+
+	mgr := New(auth, ctx)
+	mgr.eventStream = fakeEventStream
+
+	go mgr.newPoller()
+	time.Sleep(time.Duration(1) * time.Second)
+
+	if sqsStubber.timesCalledReceiveMessage == 0 {
+		t.Fatalf("expected timesCalledReceiveMessage: N>0, got: 0")
+	}
+
+	message := <-fakeEventStream
+	if aws.StringValue(message.Body) != fakeMessageBody {
+		t.Fatalf("expected message body: %v, got: %v", fakeMessageBody, message.Body)
+	}
+}
+
+func Test_Worker(t *testing.T) {
+	t.Log("Test_Worker: should start processing messages")
+	var (
+		sqsStubber = &stubSQS{}
+	)
+
+	asgStubber := &stubAutoscaling{
+		lifecycleHooks: []*autoscaling.LifecycleHook{
+			{
+				AutoScalingGroupName: aws.String("my-asg"),
+				HeartbeatTimeout:     aws.Int64(60),
+			},
+		},
+	}
+
+	auth := Authenticator{
+		ScalingGroupClient: asgStubber,
+		SQSClient:          sqsStubber,
+		KubernetesClient:   fake.NewSimpleClientset(),
+	}
+	ctx := ManagerContext{
+		KubectlLocalPath:       stubKubectlPathSuccess,
+		QueueName:              "my-queue",
+		Region:                 "us-west-2",
+		DrainTimeoutSeconds:    1,
+		PollingIntervalSeconds: 1,
+	}
+
+	fakeNodes := []v1.Node{
+		{
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2a/i-123486890234",
+			},
+		},
+		{
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2c/i-22222222222222222",
+			},
+		},
+	}
+
+	for _, node := range fakeNodes {
+		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+	}
+
+	fakeMessage := &sqs.Message{
+		Body:          aws.String(`{"LifecycleHookName":"my-hook","AccountId":"12345689012","RequestId":"63f5b5c2-58b3-0574-b7d5-b3162d0268f0","LifecycleTransition":"autoscaling:EC2_INSTANCE_TERMINATING","AutoScalingGroupName":"my-asg","Service":"AWS Auto Scaling","Time":"2019-09-27T02:39:14.183Z","EC2InstanceId":"i-123486890234","LifecycleActionToken":"cc34960c-1e41-4703-a665-bdb3e5b81ad3"}`),
+		ReceiptHandle: aws.String("MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw="),
+	}
+
+	mgr := New(auth, ctx)
+	mgr.newWorker(fakeMessage)
+	expectedCompletedEvents := 1
+
+	if mgr.completedEvents != expectedCompletedEvents {
+		t.Fatalf("expected completed events: %v, got: %v", expectedCompletedEvents, mgr.completedEvents)
+	}
+
 }

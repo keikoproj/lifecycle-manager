@@ -14,20 +14,20 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 	var (
 		interval            = event.heartbeatInterval
 		instanceID          = event.EC2InstanceID
+		scalingGroupName    = event.AutoScalingGroupName
 		recommendedInterval = interval / 2
 	)
 
-	log.Infof("hook heartbeat timeout interval is %v, will send heartbeat every %v seconds", interval, recommendedInterval)
+	log.Debugf("scaling-group = %v, maxInterval = %v, heartbeat = %v", scalingGroupName, interval, recommendedInterval)
 	for {
-
 		time.Sleep(time.Duration(recommendedInterval) * time.Second)
 		if event.eventCompleted {
 			return
 		}
-		log.Infof("sending heartbeat for event with instance '%v' and sleeping for %v seconds", instanceID, recommendedInterval)
+		log.Infof("sending heartbeat for %v", instanceID)
 		err := extendLifecycleAction(client, *event)
 		if err != nil {
-			log.Errorf("failed to send heartbeat for event with instance '%v': %v", instanceID, err)
+			log.Errorf("failed to send heartbeat for event with instance %v: %v", instanceID, err)
 			return
 		}
 	}
@@ -52,7 +52,7 @@ func getHookHeartbeatInterval(client autoscalingiface.AutoScalingAPI, lifecycleH
 }
 
 func completeLifecycleAction(client autoscalingiface.AutoScalingAPI, event LifecycleEvent, result string) error {
-	log.Infof("setting lifecycle event as completed with result: '%v'", result)
+	log.Infof("setting lifecycle event as completed with result: %v", result)
 	input := &autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  aws.String(event.AutoScalingGroupName),
 		InstanceId:            aws.String(event.EC2InstanceID),

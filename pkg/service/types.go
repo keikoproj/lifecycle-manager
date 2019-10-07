@@ -22,11 +22,12 @@ type Authenticator struct {
 }
 
 type Manager struct {
-	eventStream   chan *sqs.Message
-	authenticator Authenticator
-	context       ManagerContext
-	queue         []LifecycleEvent
-	queueSync     *sync.Mutex
+	eventStream     chan *sqs.Message
+	authenticator   Authenticator
+	context         ManagerContext
+	queue           []LifecycleEvent
+	queueSync       *sync.Mutex
+	completedEvents int
 }
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
@@ -56,6 +57,7 @@ func (mgr *Manager) CompleteEvent(event LifecycleEvent) {
 	}
 	mgr.queueSync.Lock()
 	mgr.queue = newQueue
+	mgr.completedEvents++
 	mgr.queueSync.Unlock()
 }
 

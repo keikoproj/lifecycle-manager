@@ -1,8 +1,11 @@
 package service
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"github.com/keikoproj/lifecycle-manager/pkg/version"
 	"github.com/pkg/errors"
@@ -24,16 +27,12 @@ var (
 // Start starts the lifecycle-manager service
 func (mgr *Manager) Start() {
 	var (
-		auth   = mgr.authenticator
-		queue  = auth.SQSClient
-		ctx    = &mgr.context
-		stream = mgr.eventStream
-		url    = getQueueURLByName(auth.SQSClient, ctx.QueueName)
+		ctx = &mgr.context
 	)
 
 	log.Infof("starting lifecycle-manager service v%v", version.Version)
 	log.Infof("region = %v", ctx.Region)
-	log.Infof("queue = %v", url)
+	log.Infof("queue = %v", ctx.QueueName)
 	log.Infof("polling interval seconds = %v", ctx.PollingIntervalSeconds)
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
@@ -41,38 +40,12 @@ func (mgr *Manager) Start() {
 
 	// create a poller goroutine that reads from sqs and posts to channel
 	log.Info("spawning sqs poller")
-	go newPoller(auth.SQSClient, stream, url, ctx.PollingIntervalSeconds)
+	go mgr.newPoller()
 
 	// process messags from channel
 	for message := range mgr.eventStream {
-		event, err := readMessage(message)
-		if err != nil {
-			log.Errorf("failed to read message: %v", err)
-			continue
-		}
-
-		if !event.IsValid() {
-			err = deleteMessage(queue, url, event.receiptHandle)
-			if err != nil {
-				log.Errorf("failed to delete message: %v", err)
-			}
-			continue
-		}
-
-		heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, event.LifecycleHookName, event.AutoScalingGroupName)
-		if err != nil {
-			log.Errorf("failed to get hook heartbeat interval: %v", err)
-			continue
-		}
-
-		event.SetHeartbeatInterval(heartbeatInterval)
-		event.SetQueueURL(url)
-
-		// spawn goroutine for processing individual events
-		log.Info("spawning event handler")
-		go mgr.Process(event)
+		go mgr.newWorker(message)
 	}
-
 }
 
 // Process processes a received event
@@ -82,7 +55,6 @@ func (mgr *Manager) Process(event *LifecycleEvent) {
 		scalingGroupClient = mgr.authenticator.ScalingGroupClient
 		url                = event.queueURL
 	)
-
 	if event.IsAlreadyExist(mgr.queue) {
 		err := deleteMessage(queue, url, event.receiptHandle)
 		if err != nil {
@@ -91,19 +63,82 @@ func (mgr *Manager) Process(event *LifecycleEvent) {
 		return
 	}
 	mgr.AddEvent(*event)
-
 	err := mgr.handleEvent(event)
 	if err != nil {
 		log.Errorf("failed to process event: %v", err)
-		log.Warnf("abandoning instance '%v', ", event.EC2InstanceID)
+		log.Warnf("abandoning instance %v, ", event.EC2InstanceID)
 		completeLifecycleAction(scalingGroupClient, *event, AbandonAction)
 	}
-
 	err = deleteMessage(queue, url, event.receiptHandle)
 	if err != nil {
 		log.Errorf("failed to delete message: %v", err)
 	}
 	mgr.CompleteEvent(*event)
+}
+
+func (mgr *Manager) newPoller() {
+	var (
+		ctx      = &mgr.context
+		auth     = mgr.authenticator
+		stream   = mgr.eventStream
+		queue    = auth.SQSClient
+		url      = getQueueURLByName(queue, ctx.QueueName)
+		interval = ctx.PollingIntervalSeconds
+	)
+
+	for {
+		log.Debugln("polling for messages from queue")
+		output, err := queue.ReceiveMessage(&sqs.ReceiveMessageInput{
+			QueueUrl: aws.String(url),
+			AttributeNames: aws.StringSlice([]string{
+				"SenderId",
+			}),
+			MaxNumberOfMessages: aws.Int64(1),
+			WaitTimeSeconds:     aws.Int64(interval),
+		})
+		if err != nil {
+			log.Errorf("unable to receive message from queue %s, %v.", url, err)
+			time.Sleep(time.Duration(interval) * time.Second)
+		}
+		if len(output.Messages) == 0 {
+			log.Debugln("no messages received in interval")
+		}
+		for _, message := range output.Messages {
+			stream <- message
+		}
+	}
+}
+
+func (mgr *Manager) newWorker(message *sqs.Message) {
+	var (
+		auth  = mgr.authenticator
+		queue = auth.SQSClient
+		ctx   = &mgr.context
+		url   = getQueueURLByName(auth.SQSClient, ctx.QueueName)
+	)
+
+	// process messags from channel
+	event, err := readMessage(message)
+	if err != nil {
+		log.Errorf("failed to read message: %v", err)
+		return
+	}
+	if !event.IsValid() {
+		err = deleteMessage(queue, url, event.receiptHandle)
+		if err != nil {
+			log.Errorf("failed to delete message: %v", err)
+		}
+		return
+	}
+	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, event.LifecycleHookName, event.AutoScalingGroupName)
+	if err != nil {
+		log.Errorf("failed to get hook heartbeat interval: %v", err)
+		return
+	}
+	event.SetHeartbeatInterval(heartbeatInterval)
+	event.SetQueueURL(url)
+
+	mgr.Process(event)
 }
 
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
@@ -118,7 +153,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("completed drain for node '%v'", event.referencedNode.Name)
+	log.Infof("completed drain for node %v", event.referencedNode.Name)
 	event.SetDrainCompleted(true)
 	return nil
 }
@@ -156,7 +191,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		}
 
 		// add exclusion label
-		log.Debugf("excluding node '%v' from load balancers", node.Name)
+		log.Debugf("excluding node %v from load balancers", node.Name)
 		err = labelNode(kubeClient, ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
 		if err != nil {
 			return err
@@ -170,7 +205,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		}
 
 		// waiter for drain
-		log.Infof("%v waiting for alb-drain", arn)
+		log.Infof("draining target %v from target group %v", instanceID, arn)
 		err = waitForDeregisterInstance(elbClient, arn, instanceID, port)
 		if err != nil {
 			return err
@@ -190,7 +225,7 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	// validate instance-id exists as a node
 	node, exists := getNodeByInstance(kubeClient, instanceID)
 	if !exists {
-		return errors.Errorf("instance '%v' is not seen in cluster nodes", instanceID)
+		return errors.Errorf("instance %v is not seen in cluster nodes", instanceID)
 	}
 	event.SetReferencedNode(node)
 
