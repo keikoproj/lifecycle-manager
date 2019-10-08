@@ -13,6 +13,8 @@ This can cause apps to experience errors when they are abruptly terminated.
 
 lifecycle-manager uses lifecycle hooks from the autoscaling group (via SQS) to pre-drain the instances for you.
 
+In addition to node draining, lifecycle-manager also tries to deregister the instance from any discovered ALB target group, this helps with pre-draining for the ALB instances prior to shutdown in order to avoid in-flight 5xx errors on your ALB - this feature is currently supported for `aws-alb-ingress-controller`.
+
 ## Usage
 
 1. Follow the [AWS docs](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html#sqs-notifications) to create an SQS queue named `lifecycle-manager-queue`, a notification role, and a lifecycle-hook on your autoscaling group pointing to the created queue.
@@ -55,7 +57,48 @@ time="2019-10-02T02:44:12Z" level=info msg="hook heartbeat timeout interval is 6
 time="2019-10-02T02:44:12Z" level=info msg="draining node ip-10-10-10-10.us-west-2.compute.internal"
 time="2019-10-02T02:44:42Z" level=info msg="sending heartbeat for event with instance 'i-0d3ba307bc6cebeda' and sleeping for 30 seconds"
 time="2019-10-02T02:44:45Z" level=info msg="completed drain for node 'ip-10-10-10-10.us-west-2.compute.internal'"
-time="2019-10-02T02:44:45Z" level=info msg="setting lifecycle event as completed with result: 'CONTINUE'"
+time="2019-10-02T02:44:45Z" level=info msg="deregistering i-0d3ba307bc6cebeda from arn:aws:elasticloadbalancing:us-west-2:00000EXAMPLE:targetgroup/targetgroup-9b26c8689f3b53a1ef0/53e66aede612f044"
+time="2019-10-02T02:44:45Z" level=info msg="sending heartbeat for event with instance 'i-0d3ba307bc6cebeda' and sleeping for 30 seconds"
+time="2019-10-02T02:45:15Z" level=info msg="setting lifecycle event as completed with result: 'CONTINUE'"
+```
+
+### Required AWS Auth / RBAC
+
+#### AWS
+
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "autoscaling:DescribeLifecycleHooks",
+        "autoscaling:CompleteLifecycleAction",
+        "autoscaling:RecordLifecycleActionHeartbeat",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueUrl",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeTargetGroups"
+    ],
+    "Resource": "*"
+}
+```
+
+#### RBAC
+
+```yaml
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["daemonsets"]
+  verbs: ["get"]
 ```
 
 ## Release History

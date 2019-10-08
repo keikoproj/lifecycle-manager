@@ -70,7 +70,7 @@ spec:
               memory: 100Mi
           command:
             - /bin/lifecycle-manager
-            - --queue-name my-queue
+            - --queue-name lifecycle-manager-queue
             - --region us-west-2
           volumeMounts:
             - name: ssl-certs

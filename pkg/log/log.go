@@ -44,8 +44,21 @@ func NewLogger() *logrus.Logger {
 
 func newLogrusLogger() *logrus.Logger {
 	l := logrus.New()
-	l.Level = logrus.DebugLevel
+	l.Level = logrus.InfoLevel
 	return l
+}
+
+func SetLevel(logLevel string) {
+	switch logLevel {
+	case "debug":
+		defaultLogger.Level = logrus.DebugLevel
+	case "warning":
+		defaultLogger.Level = logrus.WarnLevel
+	case "info":
+		defaultLogger.Level = logrus.InfoLevel
+	default:
+		defaultLogger.Level = logrus.InfoLevel
+	}
 }
 
 type Fields map[string]interface{}

@@ -103,35 +103,6 @@ func Test_DeleteMessage(t *testing.T) {
 	}
 }
 
-func Test_Poller(t *testing.T) {
-	t.Log("Test_Poller: should deliver messages from sqs to channel")
-	fakeQueueName := "my-queue"
-	fakeEventStream := make(chan *sqs.Message, 0)
-	fakeMessageBody := "message-body"
-	stubber := &stubSQS{
-		FakeQueueName: fakeQueueName,
-		FakeQueueMessages: []*sqs.Message{
-			{
-				Body: aws.String(fakeMessageBody),
-			},
-		},
-	}
-	url := getQueueURLByName(stubber, fakeQueueName)
-
-	go newPoller(stubber, fakeEventStream, url, 10)
-	time.Sleep(time.Duration(1) * time.Second)
-
-	if stubber.timesCalledReceiveMessage == 0 {
-		t.Fatalf("expected timesCalledReceiveMessage: N>0, got: 0")
-	}
-
-	message := <-fakeEventStream
-	// for message := range fakeEventStream {
-	if aws.StringValue(message.Body) != fakeMessageBody {
-		t.Fatalf("expected message body: %v, got: %v", fakeMessageBody, message.Body)
-	}
-}
-
 func Test_ReadMessage(t *testing.T) {
 	t.Log("Test_ReadMessage: should unmarshal a message into a LifecycleEvent")
 	expectedLifecycleEvent := &LifecycleEvent{

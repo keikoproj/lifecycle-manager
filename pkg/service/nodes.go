@@ -88,3 +88,25 @@ func runCommandWithContext(call string, args []string, timeoutSeconds, retryInte
 
 	return nil
 }
+
+func runCommand(call string, arg []string) (string, error) {
+	log.Debugf("invoking >> %s %s", call, arg)
+	out, err := exec.Command(call, arg...).CombinedOutput()
+	if err != nil {
+		log.Errorf("call failed with output: %s,  error: %s", string(out), err)
+		return string(out), err
+	}
+	log.Debugf("call succeeded with output: %s", string(out))
+	return string(out), err
+}
+
+func labelNode(kubeClient kubernetes.Interface, kubectlPath, nodeName, labelKey, labelValue string) error {
+	label := fmt.Sprintf("%v=%v", labelKey, labelValue)
+	labelArgs := []string{"label", "--overwrite", "node", nodeName, label}
+	_, err := runCommand(kubectlPath, labelArgs)
+	if err != nil {
+		log.Errorf("failed to label node %v", nodeName)
+		return err
+	}
+	return nil
+}
