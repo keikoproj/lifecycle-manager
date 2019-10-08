@@ -16,7 +16,7 @@ Make sure you already have an autoscaling group configured to post lifecycle hoo
 $ make build
 $ ./bin/lifecycle-manager serve --kubectl-path /usr/local/bin/kubectl --local-mode /path/to/.kube/config --queue-name my-queue --region us-west-2
 
-time="2019-09-28T05:15:58Z" level=info msg="starting lifecycle-manager service v0.1.0"
+time="2019-09-28T05:15:58Z" level=info msg="starting lifecycle-manager service v0.2.0"
 time="2019-09-28T05:15:58Z" level=info msg="region = us-west-2"
 time="2019-09-28T05:15:58Z" level=info msg="queue = https://sqs.us-west-2.amazonaws.com/123456789012/my-queue"
 time="2019-09-28T05:15:58Z" level=info msg="polling interval seconds = 10"
