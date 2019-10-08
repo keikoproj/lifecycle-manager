@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
+
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
@@ -15,15 +17,17 @@ import (
 type Authenticator struct {
 	ScalingGroupClient autoscalingiface.AutoScalingAPI
 	SQSClient          sqsiface.SQSAPI
+	ELBv2Client        elbv2iface.ELBV2API
 	KubernetesClient   kubernetes.Interface
 }
 
 type Manager struct {
-	eventStream   chan *sqs.Message
-	authenticator Authenticator
-	context       ManagerContext
-	queue         []LifecycleEvent
-	queueSync     *sync.Mutex
+	eventStream     chan *sqs.Message
+	authenticator   Authenticator
+	context         ManagerContext
+	queue           []LifecycleEvent
+	queueSync       *sync.Mutex
+	completedEvents int
 }
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
@@ -36,24 +40,25 @@ func New(auth Authenticator, ctx ManagerContext) *Manager {
 	}
 }
 
-func (g *Manager) AddEvent(event LifecycleEvent) {
-	g.queueSync.Lock()
-	g.queue = append(g.queue, event)
-	g.queueSync.Unlock()
+func (mgr *Manager) AddEvent(event LifecycleEvent) {
+	mgr.queueSync.Lock()
+	mgr.queue = append(mgr.queue, event)
+	mgr.queueSync.Unlock()
 }
 
-func (g *Manager) CompleteEvent(event LifecycleEvent) {
+func (mgr *Manager) CompleteEvent(event LifecycleEvent) {
 	newQueue := make([]LifecycleEvent, 0)
-	for _, e := range g.queue {
+	for _, e := range mgr.queue {
 		if reflect.DeepEqual(event, e) {
 			log.Debugf("event %v completed processing", event.RequestID)
 		} else {
 			newQueue = append(newQueue, e)
 		}
 	}
-	g.queueSync.Lock()
-	g.queue = newQueue
-	g.queueSync.Unlock()
+	mgr.queueSync.Lock()
+	mgr.queue = newQueue
+	mgr.completedEvents++
+	mgr.queueSync.Unlock()
 }
 
 type ManagerContext struct {
@@ -63,6 +68,7 @@ type ManagerContext struct {
 	DrainTimeoutSeconds       int64
 	DrainRetryIntervalSeconds int64
 	PollingIntervalSeconds    int64
+	WithDeregister            bool
 }
 
 type LifecycleEvent struct {
@@ -78,6 +84,8 @@ type LifecycleEvent struct {
 	heartbeatInterval    int64
 	referencedNode       v1.Node
 	drainCompleted       bool
+	deregisterCompleted  bool
+	eventCompleted       bool
 }
 
 func (e *LifecycleEvent) IsValid() bool {
@@ -123,3 +131,9 @@ func (e *LifecycleEvent) SetReferencedNode(node v1.Node) { e.referencedNode = no
 
 // SetDrainCompleted is a setter method for status of the drain operation
 func (e *LifecycleEvent) SetDrainCompleted(val bool) { e.drainCompleted = val }
+
+// SetDeregisterCompleted is a setter method for status of the drain operation
+func (e *LifecycleEvent) SetDeregisterCompleted(val bool) { e.deregisterCompleted = val }
+
+// SetEventCompleted is a setter method for status of the drain operation
+func (e *LifecycleEvent) SetEventCompleted(val bool) { e.eventCompleted = val }

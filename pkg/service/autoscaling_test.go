@@ -32,9 +32,9 @@ func (a *stubAutoscaling) CompleteLifecycleAction(input *autoscaling.CompleteLif
 	return &autoscaling.CompleteLifecycleActionOutput{}, nil
 }
 
-func (e *LifecycleEvent) _setDrainCompletedAfter(value bool, seconds int64) {
+func (e *LifecycleEvent) _setEventCompletedAfter(value bool, seconds int64) {
 	time.Sleep(time.Duration(seconds)*time.Second + time.Duration(500)*time.Millisecond)
-	e.drainCompleted = value
+	e.eventCompleted = value
 }
 
 func Test_SendHeartbeatPositive(t *testing.T) {
@@ -46,10 +46,11 @@ func Test_SendHeartbeatPositive(t *testing.T) {
 		LifecycleActionToken: "some-token-1234",
 		LifecycleHookName:    "my-hook",
 		drainCompleted:       false,
+		heartbeatInterval:    3,
 	}
 
-	go event._setDrainCompletedAfter(true, 2)
-	sendHeartbeat(stubber, event, 1)
+	go event._setEventCompletedAfter(true, 2)
+	sendHeartbeat(stubber, event)
 	expectedHeartbeatCalls := 2
 
 	if stubber.timesCalledRecordLifecycleActionHeartbeat != expectedHeartbeatCalls {
@@ -58,17 +59,18 @@ func Test_SendHeartbeatPositive(t *testing.T) {
 }
 
 func Test_SendHeartbeatNegative(t *testing.T) {
-	t.Log("Test_SendHeartbeatNegative: If drain is completed, heartbeat should not be sent")
+	t.Log("Test_SendHeartbeatNegative: If event is completed, heartbeat should not be sent")
 	stubber := &stubAutoscaling{}
 	event := &LifecycleEvent{
 		AutoScalingGroupName: "my-asg",
 		EC2InstanceID:        "i-1234567890",
 		LifecycleActionToken: "some-token-1234",
 		LifecycleHookName:    "my-hook",
-		drainCompleted:       true,
+		eventCompleted:       true,
+		heartbeatInterval:    3,
 	}
 
-	sendHeartbeat(stubber, event, 1)
+	sendHeartbeat(stubber, event)
 	expectedHeartbeatCalls := 0
 
 	if stubber.timesCalledRecordLifecycleActionHeartbeat != expectedHeartbeatCalls {

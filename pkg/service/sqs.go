@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -24,37 +23,15 @@ func getQueueURLByName(s sqsiface.SQSAPI, name string) string {
 	return aws.StringValue(resultURL.QueueUrl)
 }
 
-func newPoller(s sqsiface.SQSAPI, chn chan<- *sqs.Message, url string, interval int64) {
-	for {
-		log.Debugln("polling for messages from queue")
-		output, err := s.ReceiveMessage(&sqs.ReceiveMessageInput{
-			QueueUrl: aws.String(url),
-			AttributeNames: aws.StringSlice([]string{
-				"SenderId",
-			}),
-			MaxNumberOfMessages: aws.Int64(1),
-			WaitTimeSeconds:     aws.Int64(interval),
-		})
-		if err != nil {
-			log.Errorf("unable to receive message from queue %s, %v.", url, err)
-			time.Sleep(time.Duration(interval) * time.Second)
-		}
-		if len(output.Messages) == 0 {
-			log.Debugln("no messages received in interval")
-		}
-		for _, message := range output.Messages {
-			chn <- message
-		}
-	}
-}
-
 func readMessage(message *sqs.Message) (*LifecycleEvent, error) {
+	var (
+		event   = &LifecycleEvent{}
+		receipt = aws.StringValue(message.ReceiptHandle)
+		body    = aws.StringValue(message.Body)
+	)
 	log.Debugf("reading message id=%v", aws.StringValue(message.MessageId))
-	payload := []byte(aws.StringValue(message.Body))
-	event := &LifecycleEvent{
-		receiptHandle: aws.StringValue(message.ReceiptHandle),
-	}
-	err := json.Unmarshal(payload, event)
+	event.SetReceiptHandle(receipt)
+	err := json.Unmarshal([]byte(body), event)
 	if err != nil {
 		return event, err
 	}

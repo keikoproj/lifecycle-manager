@@ -10,16 +10,24 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent, sleepInterval int64) {
+func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent) {
+	var (
+		interval            = event.heartbeatInterval
+		instanceID          = event.EC2InstanceID
+		scalingGroupName    = event.AutoScalingGroupName
+		recommendedInterval = interval / 2
+	)
+
+	log.Debugf("scaling-group = %v, maxInterval = %v, heartbeat = %v", scalingGroupName, interval, recommendedInterval)
 	for {
-		time.Sleep(time.Duration(sleepInterval) * time.Second)
-		if event.drainCompleted {
+		time.Sleep(time.Duration(recommendedInterval) * time.Second)
+		if event.eventCompleted {
 			return
 		}
-		log.Infof("sending heartbeat for event with instance '%v' and sleeping for %v seconds", event.EC2InstanceID, sleepInterval)
+		log.Infof("sending heartbeat for %v", instanceID)
 		err := extendLifecycleAction(client, *event)
 		if err != nil {
-			log.Errorf("failed to send heartbeat for event with instance '%v': %v", event.EC2InstanceID, err)
+			log.Errorf("failed to send heartbeat for event with instance %v: %v", instanceID, err)
 			return
 		}
 	}
@@ -44,7 +52,7 @@ func getHookHeartbeatInterval(client autoscalingiface.AutoScalingAPI, lifecycleH
 }
 
 func completeLifecycleAction(client autoscalingiface.AutoScalingAPI, event LifecycleEvent, result string) error {
-	log.Infof("setting lifecycle event as completed with result: '%v'", result)
+	log.Infof("setting lifecycle event as completed with result: %v", result)
 	input := &autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  aws.String(event.AutoScalingGroupName),
 		InstanceId:            aws.String(event.EC2InstanceID),
