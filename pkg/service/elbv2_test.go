@@ -39,6 +39,17 @@ func (e *stubELBv2) DescribeTargetGroups(input *elbv2.DescribeTargetGroupsInput)
 	return &elbv2.DescribeTargetGroupsOutput{TargetGroups: e.targetGroups}, nil
 }
 
+func (e *stubELBv2) DescribeTargetGroupsPages(input *elbv2.DescribeTargetGroupsInput, callback func(*elbv2.DescribeTargetGroupsOutput, bool) bool) error {
+	page, err := e.DescribeTargetGroups(input)
+	if err != nil {
+		return err
+	}
+
+	callback(page, false)
+
+	return nil
+}
+
 func Test_DeregisterInstance(t *testing.T) {
 	t.Log("Test_DeregisterInstance: should be able to deregister an instance")
 	var (

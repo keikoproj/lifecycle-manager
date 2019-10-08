@@ -179,7 +179,12 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	}
 
 	// get all target groups
-	targetGroups, err := elbClient.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{})
+	input := &elbv2.DescribeTargetGroupsInput{}
+	targetGroups := []*elbv2.TargetGroup{}
+	err := elbClient.DescribeTargetGroupsPages(input, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
+		targetGroups = append(targetGroups, page.TargetGroups...)
+		return page.NextMarker != nil
+	})
 	if err != nil {
 		return err
 	}
@@ -191,7 +196,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		return err
 	}
 
-	for _, tg := range targetGroups.TargetGroups {
+	for _, tg := range targetGroups {
 		arn := aws.StringValue(tg.TargetGroupArn)
 		// check each target group for matches
 		found, port, err := findInstanceInTargetGroup(elbClient, arn, instanceID)
