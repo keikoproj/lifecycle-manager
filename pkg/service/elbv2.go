@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-
-	"github.com/aws/aws-sdk-go/aws/request"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
@@ -15,12 +15,13 @@ import (
 func waitForDeregisterInstance(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	var (
 		MaxAttempts = 500
+		ConstDelay  = request.ConstantWaiterDelay(10 * time.Second)
 	)
 
 	waiterOpts := []request.WaiterOption{
 		request.WithWaiterMaxAttempts(MaxAttempts),
+		request.WithWaiterDelay(ConstDelay),
 	}
-
 	input := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(arn),
 		Targets: []*elbv2.TargetDescription{
@@ -30,7 +31,6 @@ func waitForDeregisterInstance(elbClient elbv2iface.ELBV2API, arn, instanceID st
 			},
 		},
 	}
-
 	err := elbClient.WaitUntilTargetDeregisteredWithContext(context.Background(), input, waiterOpts...)
 	if err != nil {
 		return err
@@ -42,6 +42,7 @@ func findInstanceInTargetGroup(elbClient elbv2iface.ELBV2API, arn, instanceID st
 	input := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(arn),
 	}
+
 	target, err := elbClient.DescribeTargetHealth(input)
 	if err != nil {
 		return false, 0, err

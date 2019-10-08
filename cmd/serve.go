@@ -2,8 +2,12 @@ package cmd
 
 import (
 	"os"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws/request"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
@@ -32,6 +36,15 @@ var (
 	drainRetryIntervalSeconds int
 	drainTimeoutSeconds       int
 	pollingIntervalSeconds    int
+
+	// DefaultRetryer is the default retry configuration for some AWS API calls
+	DefaultRetryer = client.DefaultRetryer{
+		NumMaxRetries:    250,
+		MinThrottleDelay: time.Second * 5,
+		MaxThrottleDelay: time.Second * 20,
+		MinRetryDelay:    time.Second * 1,
+		MaxRetryDelay:    time.Second * 5,
+	}
 )
 
 // serveCmd represents the serve command
@@ -126,19 +139,22 @@ func newKubernetesClient(localMode string) *kubernetes.Clientset {
 }
 
 func newELBv2Client(region string) elbv2iface.ELBV2API {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(region)},
-	)
+	config := aws.NewConfig().WithRegion(region)
+	config = config.WithCredentialsChainVerboseErrors(true)
+	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
+	sess, err := session.NewSession(config)
 	if err != nil {
 		log.Fatalf("failed to create elbv2 client, %v", err)
 	}
+
 	return elbv2.New(sess)
 }
 
 func newSQSClient(region string) sqsiface.SQSAPI {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(region)},
-	)
+	config := aws.NewConfig().WithRegion(region)
+	config = config.WithCredentialsChainVerboseErrors(true)
+	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
+	sess, err := session.NewSession(config)
 	if err != nil {
 		log.Fatalf("failed to create sqs client, %v", err)
 	}
@@ -146,11 +162,12 @@ func newSQSClient(region string) sqsiface.SQSAPI {
 }
 
 func newASGClient(region string) autoscalingiface.AutoScalingAPI {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(region)},
-	)
+	config := aws.NewConfig().WithRegion(region)
+	config = config.WithCredentialsChainVerboseErrors(true)
+	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
+	sess, err := session.NewSession(config)
 	if err != nil {
-		log.Fatalf("failed to create scaling-group client, %v", err)
+		log.Fatalf("failed to create asg client, %v", err)
 	}
 	return autoscaling.New(sess)
 }

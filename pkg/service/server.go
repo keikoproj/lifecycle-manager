@@ -1,6 +1,8 @@
 package service
 
 import (
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -88,6 +90,7 @@ func (mgr *Manager) newPoller() {
 
 	for {
 		log.Debugln("polling for messages from queue")
+		log.Debugf("active goroutines: %v", runtime.NumGoroutine())
 		output, err := queue.ReceiveMessage(&sqs.ReceiveMessageInput{
 			QueueUrl: aws.String(url),
 			AttributeNames: aws.StringSlice([]string{
@@ -160,11 +163,15 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 
 func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	var (
-		kubeClient = mgr.authenticator.KubernetesClient
-		elbClient  = mgr.authenticator.ELBv2Client
-		instanceID = event.EC2InstanceID
-		ctx        = &mgr.context
-		node       = event.referencedNode
+		kubeClient         = mgr.authenticator.KubernetesClient
+		elbClient          = mgr.authenticator.ELBv2Client
+		instanceID         = event.EC2InstanceID
+		ctx                = &mgr.context
+		node               = event.referencedNode
+		wg                 sync.WaitGroup
+		errChannel         = make(chan error, 1)
+		finished           = make(chan bool, 1)
+		activeTargetGroups = make(map[string]int64)
 	)
 
 	if !ctx.WithDeregister {
@@ -177,9 +184,15 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		return err
 	}
 
+	// add exclusion label
+	log.Debugf("excluding node %v from load balancers", node.Name)
+	err = labelNode(kubeClient, ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
+	if err != nil {
+		return err
+	}
+
 	for _, tg := range targetGroups.TargetGroups {
 		arn := aws.StringValue(tg.TargetGroupArn)
-
 		// check each target group for matches
 		found, port, err := findInstanceInTargetGroup(elbClient, arn, instanceID)
 		if err != nil {
@@ -190,27 +203,50 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			continue
 		}
 
-		// add exclusion label
-		log.Debugf("excluding node %v from load balancers", node.Name)
-		err = labelNode(kubeClient, ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
-		if err != nil {
-			return err
-		}
+		activeTargetGroups[arn] = port
+	}
 
-		// deregister from alb
-		log.Debugf("found %v in target group %v, will deregister", instanceID, arn)
-		err = deregisterInstance(elbClient, arn, instanceID, port)
-		if err != nil {
-			return err
-		}
+	// create goroutine per target group with target match
+	wg.Add(len(activeTargetGroups))
+	for arn, port := range activeTargetGroups {
+		go func(activeARN, instance string, activePort int64) {
+			// deregister from alb
+			log.Debugf("found %v in target group %v, will deregister", instance, activeARN)
+			err = deregisterInstance(elbClient, activeARN, instance, activePort)
+			if err != nil {
+				errChannel <- err
+			}
 
-		// waiter for drain
-		log.Infof("draining target %v from target group %v", instanceID, arn)
-		err = waitForDeregisterInstance(elbClient, arn, instanceID, port)
+			// waiter for drain
+			log.Infof("starting alb-drain waiter for %v in target-group %v", instance, activeARN)
+			err = waitForDeregisterInstance(elbClient, activeARN, instance, activePort)
+			if err != nil {
+				errChannel <- err
+			}
+			wg.Done()
+		}(arn, instanceID, port)
+	}
+
+	// wait indefinitely for goroutines to complete
+	go func() {
+		wg.Wait()
+		close(finished)
+	}()
+
+	var errs error
+	select {
+	case <-finished:
+	case err := <-errChannel:
 		if err != nil {
-			return err
+			errs = errors.Wrap(err, "failed to process alb-drain: ")
 		}
 	}
+
+	if errs != nil {
+		return errs
+	}
+
+	log.Debugf("successfully executed all drainLoadbalancerTarget goroutines")
 	event.SetDeregisterCompleted(true)
 	return nil
 }
