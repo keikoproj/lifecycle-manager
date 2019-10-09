@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/sqs"
 
@@ -251,6 +252,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 		asgStubber       = &stubAutoscaling{}
 		sqsStubber       = &stubSQS{}
 		arn              = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
+		elbName          = "my-classic-elb"
 		instanceID       = "i-123486890234"
 		port       int64 = 122233
 	)
@@ -271,10 +273,24 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 		},
 	}
 
+	elbStubber := &stubELB{
+		loadBalancerDescriptions: []*elb.LoadBalancerDescription{
+			{
+				LoadBalancerName: aws.String(elbName),
+			},
+		},
+		instanceStates: []*elb.InstanceState{
+			{
+				InstanceId: aws.String(instanceID),
+			},
+		},
+	}
+
 	auth := Authenticator{
 		ScalingGroupClient: asgStubber,
 		SQSClient:          sqsStubber,
 		ELBv2Client:        elbv2Stubber,
+		ELBClient:          elbStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
@@ -252,15 +253,17 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 
 func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	var (
-		kubeClient         = mgr.authenticator.KubernetesClient
-		elbClient          = mgr.authenticator.ELBv2Client
-		instanceID         = event.EC2InstanceID
-		ctx                = &mgr.context
-		node               = event.referencedNode
-		wg                 sync.WaitGroup
-		errChannel         = make(chan error, 1)
-		finished           = make(chan bool, 1)
-		activeTargetGroups = make(map[string]int64)
+		kubeClient          = mgr.authenticator.KubernetesClient
+		elbv2Client         = mgr.authenticator.ELBv2Client
+		elbClient           = mgr.authenticator.ELBClient
+		instanceID          = event.EC2InstanceID
+		ctx                 = &mgr.context
+		node                = event.referencedNode
+		wg                  sync.WaitGroup
+		errChannel          = make(chan error, 1)
+		finished            = make(chan bool, 1)
+		activeTargetGroups  = make(map[string]int64)
+		activeLoadBalancers = make([]string, 0)
 	)
 
 	if !ctx.WithDeregister {
@@ -270,8 +273,18 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	// get all target groups
 	input := &elbv2.DescribeTargetGroupsInput{}
 	targetGroups := []*elbv2.TargetGroup{}
-	err := elbClient.DescribeTargetGroupsPages(input, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
+	err := elbv2Client.DescribeTargetGroupsPages(input, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
 		targetGroups = append(targetGroups, page.TargetGroups...)
+		return page.NextMarker != nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// get all classic elbs
+	elbDescriptions := []*elb.LoadBalancerDescription{}
+	err = elbClient.DescribeLoadBalancersPages(&elb.DescribeLoadBalancersInput{}, func(page *elb.DescribeLoadBalancersOutput, lastPage bool) bool {
+		elbDescriptions = append(elbDescriptions, page.LoadBalancerDescriptions...)
 		return page.NextMarker != nil
 	})
 	if err != nil {
@@ -285,10 +298,11 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		return err
 	}
 
+	// find instance in target groups
 	for _, tg := range targetGroups {
 		arn := aws.StringValue(tg.TargetGroupArn)
 		// check each target group for matches
-		found, port, err := findInstanceInTargetGroup(elbClient, arn, instanceID)
+		found, port, err := findInstanceInTargetGroup(elbv2Client, arn, instanceID)
 		if err != nil {
 			return err
 		}
@@ -296,24 +310,60 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		if !found {
 			continue
 		}
-
 		activeTargetGroups[arn] = port
 	}
 
+	// find instance in classic elbs
+	for _, desc := range elbDescriptions {
+		elbName := aws.StringValue(desc.LoadBalancerName)
+		// check each target group for matches
+		found, err := findInstanceInClassicBalancer(elbClient, elbName, instanceID)
+		if err != nil {
+			return err
+		}
+
+		if !found {
+			continue
+		}
+		activeLoadBalancers = append(activeLoadBalancers, elbName)
+	}
+
+	workQueueLength := len(activeTargetGroups) + len(activeLoadBalancers)
+
 	// create goroutine per target group with target match
-	wg.Add(len(activeTargetGroups))
-	for arn, port := range activeTargetGroups {
-		go func(activeARN, instance string, activePort int64) {
-			// deregister from alb
-			log.Debugf("found %v in target group %v, will deregister", instance, activeARN)
-			err = deregisterInstance(elbClient, activeARN, instance, activePort)
+	wg.Add(workQueueLength)
+	// handle classic load balancers
+	for _, elbName := range activeLoadBalancers {
+		go func(elbName, instance string) {
+			// deregister from classic-elb
+			log.Debugf("found %v in classic-elb %v, will deregister", instance, elbName)
+			err = deregisterInstance(elbClient, elbName, instance)
 			if err != nil {
 				errChannel <- err
 			}
 
-			// waiter for drain
+			// wait for deregister/drain
+			log.Infof("starting elb-drain waiter for %v in classic-elb %v", instance, elbName)
+			err = waitForDeregisterInstance(elbClient, elbName, instance)
+			if err != nil {
+				errChannel <- err
+			}
+			wg.Done()
+		}(elbName, instanceID)
+	}
+	// handle v2 load balancers / target groups
+	for arn, port := range activeTargetGroups {
+		go func(activeARN, instance string, activePort int64) {
+			// deregister from alb
+			log.Debugf("found %v in target group %v, will deregister", instance, activeARN)
+			err = deregisterTarget(elbv2Client, activeARN, instance, activePort)
+			if err != nil {
+				errChannel <- err
+			}
+
+			// wait for deregister/drain
 			log.Infof("starting alb-drain waiter for %v in target-group %v", instance, activeARN)
-			err = waitForDeregisterInstance(elbClient, activeARN, instance, activePort)
+			err = waitForDeregisterTarget(elbv2Client, activeARN, instance, activePort)
 			if err != nil {
 				errChannel <- err
 			}

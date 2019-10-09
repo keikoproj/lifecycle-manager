@@ -12,7 +12,7 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func waitForDeregisterInstance(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
+func waitForDeregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	var (
 		MaxAttempts = 500
 		ConstDelay  = request.ConstantWaiterDelay(10 * time.Second)
@@ -56,7 +56,7 @@ func findInstanceInTargetGroup(elbClient elbv2iface.ELBV2API, arn, instanceID st
 	return false, 0, nil
 }
 
-func deregisterInstance(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
+func deregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	input := &elbv2.DeregisterTargetsInput{
 		Targets: []*elbv2.TargetDescription{
 			{

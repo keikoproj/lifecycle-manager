@@ -11,6 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
+	"github.com/aws/aws-sdk-go/service/elb"
+	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -62,6 +64,7 @@ var serveCmd = &cobra.Command{
 			ScalingGroupClient: newASGClient(region),
 			SQSClient:          newSQSClient(region),
 			ELBv2Client:        newELBv2Client(region),
+			ELBClient:          newELBClient(region),
 			KubernetesClient:   newKubernetesClient(localMode),
 		}
 
@@ -148,6 +151,18 @@ func newELBv2Client(region string) elbv2iface.ELBV2API {
 	}
 
 	return elbv2.New(sess)
+}
+
+func newELBClient(region string) elbiface.ELBAPI {
+	config := aws.NewConfig().WithRegion(region)
+	config = config.WithCredentialsChainVerboseErrors(true)
+	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
+	sess, err := session.NewSession(config)
+	if err != nil {
+		log.Fatalf("failed to create elb client, %v", err)
+	}
+
+	return elb.New(sess)
 }
 
 func newSQSClient(region string) sqsiface.SQSAPI {
