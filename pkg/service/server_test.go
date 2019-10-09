@@ -146,6 +146,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 	var (
 		asgStubber       = &stubAutoscaling{}
 		sqsStubber       = &stubSQS{}
+		elbStubber       = &stubELB{}
 		arn              = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
 		instanceID       = "i-123486890234"
 		port       int64 = 122233
@@ -171,6 +172,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 		ScalingGroupClient: asgStubber,
 		SQSClient:          sqsStubber,
 		ELBv2Client:        elbv2Stubber,
+		ELBClient:          elbStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
 

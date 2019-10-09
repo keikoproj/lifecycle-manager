@@ -50,8 +50,8 @@ func (e *stubELBv2) DescribeTargetGroupsPages(input *elbv2.DescribeTargetGroupsI
 	return nil
 }
 
-func Test_DeregisterInstance(t *testing.T) {
-	t.Log("Test_DeregisterInstance: should be able to deregister an instance")
+func Test_DeregisterTarget(t *testing.T) {
+	t.Log("Test_DeregisterTarget: should be able to deregister an instance")
 	var (
 		stubber             = &stubELBv2{}
 		arn                 = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
@@ -60,7 +60,7 @@ func Test_DeregisterInstance(t *testing.T) {
 		expectedCalls       = 1
 	)
 
-	err := deregisterInstance(stubber, arn, instanceID, port)
+	err := deregisterTarget(stubber, arn, instanceID, port)
 	if err != nil {
 		t.Fatalf("Test_DeregisterInstance: expected error not to have occured, %v", err)
 	}

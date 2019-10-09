@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/service/elb/elbiface"
+
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
@@ -18,6 +20,7 @@ type Authenticator struct {
 	ScalingGroupClient autoscalingiface.AutoScalingAPI
 	SQSClient          sqsiface.SQSAPI
 	ELBv2Client        elbv2iface.ELBV2API
+	ELBClient          elbiface.ELBAPI
 	KubernetesClient   kubernetes.Interface
 }
 
