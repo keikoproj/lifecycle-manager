@@ -114,20 +114,44 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 		url                = event.queueURL
 	)
 
-	if !reflect.DeepEqual(event, LifecycleEvent{}) {
-		log.Errorf("event %v has failed processing: %v", event.RequestID, err)
-		mgr.failedEvents++
-		err = deleteMessage(queue, url, event.receiptHandle)
-		if err != nil {
-			log.Errorf("event failed: failed to delete message: %v", err)
-		}
-	} else {
-		log.Errorf("event failed: invalid message: %v", err)
-	}
+	log.Errorf("event %v has failed processing: %v", event.RequestID, err)
+	mgr.failedEvents++
 
 	if abandon {
-		log.Warnf("abandoning instance %v, ", event.EC2InstanceID)
+		log.Warnf("abandoning instance %v", event.EC2InstanceID)
 		completeLifecycleAction(scalingGroupClient, *event, AbandonAction)
+	}
+
+	if reflect.DeepEqual(event, LifecycleEvent{}) {
+		log.Errorf("event failed: invalid message: %v", err)
+		return
+	}
+
+	err = deleteMessage(queue, url, event.receiptHandle)
+	if err != nil {
+		log.Errorf("event failed: failed to delete message: %v", err)
+	}
+
+}
+
+func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
+	var (
+		auth  = mgr.authenticator
+		queue = auth.SQSClient
+		url   = event.queueURL
+	)
+
+	log.Debugf("event %v has been rejected for processing: %v", event.RequestID, err)
+	mgr.rejectedEvents++
+
+	if reflect.DeepEqual(event, LifecycleEvent{}) {
+		log.Errorf("event failed: invalid message: %v", err)
+		return
+	}
+
+	err = deleteMessage(queue, url, event.receiptHandle)
+	if err != nil {
+		log.Errorf("event failed: failed to delete message: %v", err)
 	}
 }
 
@@ -177,27 +201,27 @@ func (mgr *Manager) newWorker(message *sqs.Message) {
 	event, err := readMessage(message)
 	if err != nil {
 		err = errors.Wrap(err, "failed to read message")
-		mgr.FailEvent(err, event, false)
+		mgr.RejectEvent(err, event)
 		return
 	}
 	event.SetQueueURL(url)
 
 	if !event.IsValid() {
 		err = errors.Wrap(err, "received invalid event")
-		mgr.FailEvent(err, event, false)
+		mgr.RejectEvent(err, event)
 		return
 	}
 
 	if event.IsAlreadyExist(mgr.workQueue) {
 		err := errors.New("event already exists")
-		mgr.FailEvent(err, event, false)
+		mgr.RejectEvent(err, event)
 		return
 	}
 
 	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, event.LifecycleHookName, event.AutoScalingGroupName)
 	if err != nil {
 		err = errors.Wrap(err, "failed to get hook heartbeat interval")
-		mgr.FailEvent(err, event, false)
+		mgr.RejectEvent(err, event)
 		return
 	}
 	event.SetHeartbeatInterval(heartbeatInterval)

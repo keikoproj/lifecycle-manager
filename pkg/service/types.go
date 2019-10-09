@@ -27,6 +27,7 @@ type Manager struct {
 	workQueue       []*LifecycleEvent
 	workQueueSync   *sync.Mutex
 	completedEvents int
+	rejectedEvents  int
 	failedEvents    int
 }
 
