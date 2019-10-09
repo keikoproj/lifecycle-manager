@@ -1,6 +1,7 @@
 package service
 
 import (
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -52,31 +53,107 @@ func (mgr *Manager) Start() {
 }
 
 // Process processes a received event
-func (mgr *Manager) Process(event *LifecycleEvent) {
-	var (
-		queue              = mgr.authenticator.SQSClient
-		scalingGroupClient = mgr.authenticator.ScalingGroupClient
-		url                = event.queueURL
-	)
-	if event.IsAlreadyExist(mgr.queue) {
-		err := deleteMessage(queue, url, event.receiptHandle)
-		if err != nil {
-			log.Errorf("failed to delete message: %v", err)
-		}
-		return
-	}
-	mgr.AddEvent(*event)
+func (mgr *Manager) Process(event *LifecycleEvent) error {
+
+	// add event to work queue
+	mgr.AddEvent(event)
+
+	// handle event
 	err := mgr.handleEvent(event)
 	if err != nil {
-		log.Errorf("failed to process event: %v", err)
-		log.Warnf("abandoning instance %v, ", event.EC2InstanceID)
+		return err
+	}
+
+	// mark event as completed
+	mgr.CompleteEvent(event)
+
+	return nil
+}
+
+func (mgr *Manager) AddEvent(event *LifecycleEvent) {
+	mgr.workQueueSync.Lock()
+	mgr.workQueue = append(mgr.workQueue, event)
+	mgr.workQueueSync.Unlock()
+}
+
+func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
+	var (
+		queue     = mgr.authenticator.SQSClient
+		asgClient = mgr.authenticator.ScalingGroupClient
+		url       = event.queueURL
+	)
+	newQueue := make([]*LifecycleEvent, 0)
+	for _, e := range mgr.workQueue {
+		if reflect.DeepEqual(event, e) {
+			// found event in work queue
+			log.Infof("event %v completed processing", event.RequestID)
+			event.SetEventCompleted(true)
+
+			err := deleteMessage(queue, url, event.receiptHandle)
+			if err != nil {
+				log.Errorf("failed to delete message: %v", err)
+			}
+			err = completeLifecycleAction(asgClient, *event, ContinueAction)
+			if err != nil {
+				log.Errorf("failed to complete lifecycle action: %v", err)
+			}
+		} else {
+			newQueue = append(newQueue, e)
+		}
+	}
+	mgr.workQueueSync.Lock()
+	mgr.workQueue = newQueue
+	mgr.completedEvents++
+	mgr.workQueueSync.Unlock()
+}
+
+func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
+	var (
+		auth               = mgr.authenticator
+		queue              = auth.SQSClient
+		scalingGroupClient = auth.ScalingGroupClient
+		url                = event.queueURL
+	)
+
+	log.Errorf("event %v has failed processing: %v", event.RequestID, err)
+	mgr.failedEvents++
+
+	if abandon {
+		log.Warnf("abandoning instance %v", event.EC2InstanceID)
 		completeLifecycleAction(scalingGroupClient, *event, AbandonAction)
 	}
+
+	if reflect.DeepEqual(event, LifecycleEvent{}) {
+		log.Errorf("event failed: invalid message: %v", err)
+		return
+	}
+
 	err = deleteMessage(queue, url, event.receiptHandle)
 	if err != nil {
-		log.Errorf("failed to delete message: %v", err)
+		log.Errorf("event failed: failed to delete message: %v", err)
 	}
-	mgr.CompleteEvent(*event)
+
+}
+
+func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
+	var (
+		auth  = mgr.authenticator
+		queue = auth.SQSClient
+		url   = event.queueURL
+	)
+
+	log.Debugf("event %v has been rejected for processing: %v", event.RequestID, err)
+	mgr.rejectedEvents++
+
+	if reflect.DeepEqual(event, LifecycleEvent{}) {
+		log.Errorf("event failed: invalid message: %v", err)
+		return
+	}
+
+	err = deleteMessage(queue, url, event.receiptHandle)
+	if err != nil {
+		log.Errorf("event failed: failed to delete message: %v", err)
+	}
 }
 
 func (mgr *Manager) newPoller() {
@@ -118,31 +195,43 @@ func (mgr *Manager) newWorker(message *sqs.Message) {
 		auth  = mgr.authenticator
 		queue = auth.SQSClient
 		ctx   = &mgr.context
-		url   = getQueueURLByName(auth.SQSClient, ctx.QueueName)
+		url   = getQueueURLByName(queue, ctx.QueueName)
 	)
 
 	// process messags from channel
 	event, err := readMessage(message)
 	if err != nil {
-		log.Errorf("failed to read message: %v", err)
+		err = errors.Wrap(err, "failed to read message")
+		mgr.RejectEvent(err, event)
 		return
 	}
+	event.SetQueueURL(url)
+
 	if !event.IsValid() {
-		err = deleteMessage(queue, url, event.receiptHandle)
-		if err != nil {
-			log.Errorf("failed to delete message: %v", err)
-		}
+		err = errors.Wrap(err, "received invalid event")
+		mgr.RejectEvent(err, event)
 		return
 	}
+
+	if event.IsAlreadyExist(mgr.workQueue) {
+		err := errors.New("event already exists")
+		mgr.RejectEvent(err, event)
+		return
+	}
+
 	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, event.LifecycleHookName, event.AutoScalingGroupName)
 	if err != nil {
-		log.Errorf("failed to get hook heartbeat interval: %v", err)
+		err = errors.Wrap(err, "failed to get hook heartbeat interval")
+		mgr.RejectEvent(err, event)
 		return
 	}
 	event.SetHeartbeatInterval(heartbeatInterval)
-	event.SetQueueURL(url)
 
-	mgr.Process(event)
+	err = mgr.Process(event)
+	if err != nil {
+		mgr.FailEvent(err, event, true)
+		return
+	}
 }
 
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
@@ -331,13 +420,6 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 
 	// alb-drain action
 	err = mgr.drainLoadbalancerTarget(event)
-	if err != nil {
-		return err
-	}
-
-	// complete lifecycle action
-	event.SetEventCompleted(true)
-	err = completeLifecycleAction(asgClient, *event, ContinueAction)
 	if err != nil {
 		return err
 	}
