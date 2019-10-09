@@ -14,6 +14,114 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+func Test_RejectHandler(t *testing.T) {
+	t.Log("Test_RejectHandler: should handle rejections")
+	var (
+		sqsStubber = &stubSQS{}
+	)
+
+	asgStubber := &stubAutoscaling{
+		lifecycleHooks: []*autoscaling.LifecycleHook{
+			{
+				AutoScalingGroupName: aws.String("my-asg"),
+				HeartbeatTimeout:     aws.Int64(60),
+			},
+		},
+	}
+
+	auth := Authenticator{
+		ScalingGroupClient: asgStubber,
+		SQSClient:          sqsStubber,
+		KubernetesClient:   fake.NewSimpleClientset(),
+	}
+	ctx := ManagerContext{
+		KubectlLocalPath:       stubKubectlPathSuccess,
+		QueueName:              "my-queue",
+		Region:                 "us-west-2",
+		DrainTimeoutSeconds:    1,
+		PollingIntervalSeconds: 1,
+	}
+
+	fakeMessage := &sqs.Message{
+		// invalid instance id
+		Body:          aws.String(`{"LifecycleHookName":"my-hook","AccountId":"12345689012","RequestId":"63f5b5c2-58b3-0574-b7d5-b3162d0268f0","LifecycleTransition":"autoscaling:EC2_INSTANCE_TERMINATING","AutoScalingGroupName":"my-asg","Service":"AWS Auto Scaling","Time":"2019-09-27T02:39:14.183Z","EC2InstanceId":"","LifecycleActionToken":"cc34960c-1e41-4703-a665-bdb3e5b81ad3"}`),
+		ReceiptHandle: aws.String("MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw="),
+	}
+
+	mgr := New(auth, ctx)
+	mgr.newWorker(fakeMessage)
+
+	expectedFailedEvents := 1
+	if mgr.rejectedEvents != expectedFailedEvents {
+		t.Fatalf("expected rejected events: %v, got: %v", expectedFailedEvents, mgr.rejectedEvents)
+	}
+
+	expectedDeleteMessageEvents := 1
+	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
+		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
+	}
+}
+
+func Test_FailHandler(t *testing.T) {
+	t.Log("Test_FailHandler: should handle failures")
+	var (
+		sqsStubber = &stubSQS{}
+	)
+
+	asgStubber := &stubAutoscaling{
+		lifecycleHooks: []*autoscaling.LifecycleHook{
+			{
+				AutoScalingGroupName: aws.String("my-asg"),
+				HeartbeatTimeout:     aws.Int64(60),
+			},
+		},
+	}
+
+	auth := Authenticator{
+		ScalingGroupClient: asgStubber,
+		SQSClient:          sqsStubber,
+		KubernetesClient:   fake.NewSimpleClientset(),
+	}
+	ctx := ManagerContext{
+		KubectlLocalPath:       stubKubectlPathSuccess,
+		QueueName:              "my-queue",
+		Region:                 "us-west-2",
+		DrainTimeoutSeconds:    1,
+		PollingIntervalSeconds: 1,
+	}
+
+	fakeMessage := &sqs.Message{
+		// invalid instance id
+		Body:          aws.String(`{"LifecycleHookName":"my-hook","AccountId":"12345689012","RequestId":"63f5b5c2-58b3-0574-b7d5-b3162d0268f0","LifecycleTransition":"autoscaling:EC2_INSTANCE_TERMINATING","AutoScalingGroupName":"my-asg","Service":"AWS Auto Scaling","Time":"2019-09-27T02:39:14.183Z","EC2InstanceId":"i-12345689012","LifecycleActionToken":"cc34960c-1e41-4703-a665-bdb3e5b81ad3"}`),
+		ReceiptHandle: aws.String("MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw="),
+	}
+
+	fakeNodes := []v1.Node{
+		{
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2a/i-123486890234",
+			},
+		},
+	}
+
+	for _, node := range fakeNodes {
+		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+	}
+
+	mgr := New(auth, ctx)
+	mgr.newWorker(fakeMessage)
+
+	expectedFailedEvents := 1
+	if mgr.failedEvents != expectedFailedEvents {
+		t.Fatalf("expected failed events: %v, got: %v", expectedFailedEvents, mgr.failedEvents)
+	}
+
+	expectedDeleteMessageEvents := 1
+	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
+		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
+	}
+}
+
 func Test_Process(t *testing.T) {
 	t.Log("Test_Process: should process events")
 	asgStubber := &stubAutoscaling{}
@@ -135,10 +243,6 @@ func Test_HandleEvent(t *testing.T) {
 	if event.drainCompleted != true {
 		t.Fatal("handleEvent: expected drainCompleted to be true, got: false")
 	}
-
-	if asgStubber.timesCalledCompleteLifecycleAction != 1 {
-		t.Fatalf("handleEvent: expected timesCalledCompleteLifecycleAction to be 1, got: %v", asgStubber.timesCalledCompleteLifecycleAction)
-	}
 }
 
 func Test_HandleEventWithDeregister(t *testing.T) {
@@ -224,14 +328,6 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 
 	if event.deregisterCompleted != true {
 		t.Fatal("handleEvent: expected deregisterCompleted to be true, got: false")
-	}
-
-	if event.eventCompleted != true {
-		t.Fatal("handleEvent: expected eventCompleted to be true, got: false")
-	}
-
-	if asgStubber.timesCalledCompleteLifecycleAction != 1 {
-		t.Fatalf("handleEvent: expected timesCalledCompleteLifecycleAction to be 1, got: %v", asgStubber.timesCalledCompleteLifecycleAction)
 	}
 }
 

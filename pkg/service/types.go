@@ -1,7 +1,6 @@
 package service
 
 import (
-	"reflect"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
@@ -25,40 +24,21 @@ type Manager struct {
 	eventStream     chan *sqs.Message
 	authenticator   Authenticator
 	context         ManagerContext
-	queue           []LifecycleEvent
-	queueSync       *sync.Mutex
+	workQueue       []*LifecycleEvent
+	workQueueSync   *sync.Mutex
 	completedEvents int
+	rejectedEvents  int
+	failedEvents    int
 }
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
 		eventStream:   make(chan *sqs.Message, 0),
-		queue:         make([]LifecycleEvent, 0),
-		queueSync:     &sync.Mutex{},
+		workQueue:     make([]*LifecycleEvent, 0),
+		workQueueSync: &sync.Mutex{},
 		authenticator: auth,
 		context:       ctx,
 	}
-}
-
-func (mgr *Manager) AddEvent(event LifecycleEvent) {
-	mgr.queueSync.Lock()
-	mgr.queue = append(mgr.queue, event)
-	mgr.queueSync.Unlock()
-}
-
-func (mgr *Manager) CompleteEvent(event LifecycleEvent) {
-	newQueue := make([]LifecycleEvent, 0)
-	for _, e := range mgr.queue {
-		if reflect.DeepEqual(event, e) {
-			log.Debugf("event %v completed processing", event.RequestID)
-		} else {
-			newQueue = append(newQueue, e)
-		}
-	}
-	mgr.queueSync.Lock()
-	mgr.queue = newQueue
-	mgr.completedEvents++
-	mgr.queueSync.Unlock()
 }
 
 type ManagerContext struct {
@@ -107,7 +87,7 @@ func (e *LifecycleEvent) IsValid() bool {
 	return true
 }
 
-func (e *LifecycleEvent) IsAlreadyExist(queue []LifecycleEvent) bool {
+func (e *LifecycleEvent) IsAlreadyExist(queue []*LifecycleEvent) bool {
 	for _, event := range queue {
 		if event.RequestID == e.RequestID {
 			log.Debugf("event %v already being processed, discarding", event.RequestID)
