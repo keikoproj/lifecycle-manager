@@ -76,6 +76,12 @@ time="2019-10-02T02:45:15Z" level=info msg="setting lifecycle event as completed
         "sqs:ReceiveMessage",
         "sqs:DeleteMessage",
         "sqs:GetQueueUrl",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeClassicLinkInstances",
+        "ec2:DescribeInstances",
+        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+        "elasticloadbalancing:DescribeInstanceHealth",
+        "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DeregisterTargets",
         "elasticloadbalancing:DescribeTargetHealth",
         "elasticloadbalancing:DescribeTargetGroups"
