@@ -41,11 +41,6 @@ func waitForDeregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID st
 func findInstanceInClassicBalancer(elbClient elbiface.ELBAPI, elbName, instanceID string) (bool, error) {
 	input := &elb.DescribeInstanceHealthInput{
 		LoadBalancerName: aws.String(elbName),
-		Instances: []*elb.Instance{
-			{
-				InstanceId: aws.String(instanceID),
-			},
-		},
 	}
 
 	instance, err := elbClient.DescribeInstanceHealth(input)
