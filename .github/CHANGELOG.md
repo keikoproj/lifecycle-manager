@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
++ Improved error handling
++ Support classic-elb deregistration
++ Kubernetes event publishing
+
 ## 0.2.0
 
 + Support `--with-deregister` flag to deregister ALB instances

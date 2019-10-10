@@ -9,7 +9,7 @@ import (
 var GitCommit string
 
 // The main version number that is being run at the moment.
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 var BuildDate = ""
 

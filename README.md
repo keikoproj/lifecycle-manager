@@ -45,7 +45,7 @@ $ aws autoscaling terminate-instance-in-auto-scaling-group --instance-id i-0d3ba
 }
 
 $ kubectl logs lifecycle-manager
-time="2019-10-02T02:44:05Z" level=info msg="starting lifecycle-manager service v0.2.0"
+time="2019-10-02T02:44:05Z" level=info msg="starting lifecycle-manager service v0.3.0"
 time="2019-10-02T02:44:05Z" level=info msg="region = us-west-2"
 time="2019-10-02T02:44:05Z" level=info msg="queue = https://sqs.us-west-2.amazonaws.com/00000EXAMPLE/lifecycle-manager-queue"
 time="2019-10-02T02:44:05Z" level=info msg="polling interval seconds = 10"
@@ -76,6 +76,12 @@ time="2019-10-02T02:45:15Z" level=info msg="setting lifecycle event as completed
         "sqs:ReceiveMessage",
         "sqs:DeleteMessage",
         "sqs:GetQueueUrl",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeClassicLinkInstances",
+        "ec2:DescribeInstances",
+        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+        "elasticloadbalancing:DescribeInstanceHealth",
+        "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DeregisterTargets",
         "elasticloadbalancing:DescribeTargetHealth",
         "elasticloadbalancing:DescribeTargetGroups"
