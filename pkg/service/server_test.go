@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/pkg/errors"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -91,26 +92,21 @@ func Test_FailHandler(t *testing.T) {
 		PollingIntervalSeconds: 1,
 	}
 
-	fakeMessage := &sqs.Message{
-		// invalid instance id
-		Body:          aws.String(`{"LifecycleHookName":"my-hook","AccountId":"12345689012","RequestId":"63f5b5c2-58b3-0574-b7d5-b3162d0268f0","LifecycleTransition":"autoscaling:EC2_INSTANCE_TERMINATING","AutoScalingGroupName":"my-asg","Service":"AWS Auto Scaling","Time":"2019-09-27T02:39:14.183Z","EC2InstanceId":"i-12345689012","LifecycleActionToken":"cc34960c-1e41-4703-a665-bdb3e5b81ad3"}`),
-		ReceiptHandle: aws.String("MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw="),
-	}
-
-	fakeNodes := []v1.Node{
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: "aws:///us-west-2a/i-123486890234",
-			},
-		},
-	}
-
-	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+	event := &LifecycleEvent{
+		LifecycleHookName:    "my-hook",
+		AccountID:            "12345689012",
+		RequestID:            "63f5b5c2-58b3-0574-b7d5-b3162d0268f0",
+		LifecycleTransition:  "autoscaling:EC2_INSTANCE_TERMINATING",
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-123486890234",
+		LifecycleActionToken: "cc34960c-1e41-4703-a665-bdb3e5b81ad3",
+		receiptHandle:        "MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw=",
+		heartbeatInterval:    2,
 	}
 
 	mgr := New(auth, ctx)
-	mgr.newWorker(fakeMessage)
+	err := errors.New("some error occured")
+	mgr.FailEvent(err, event, true)
 
 	expectedFailedEvents := 1
 	if mgr.failedEvents != expectedFailedEvents {

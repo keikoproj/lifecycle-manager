@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"reflect"
 	"runtime"
 	"sync"
@@ -78,9 +79,10 @@ func (mgr *Manager) AddEvent(event *LifecycleEvent) {
 
 func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 	var (
-		queue     = mgr.authenticator.SQSClient
-		asgClient = mgr.authenticator.ScalingGroupClient
-		url       = event.queueURL
+		queue      = mgr.authenticator.SQSClient
+		kubeClient = mgr.authenticator.KubernetesClient
+		asgClient  = mgr.authenticator.ScalingGroupClient
+		url        = event.queueURL
 	)
 	newQueue := make([]*LifecycleEvent, 0)
 	for _, e := range mgr.workQueue {
@@ -97,6 +99,8 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 			if err != nil {
 				log.Errorf("failed to complete lifecycle action: %v", err)
 			}
+			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID)
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msg, event.referencedNode.Name))
 		} else {
 			newQueue = append(newQueue, e)
 		}
@@ -110,6 +114,7 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	var (
 		auth               = mgr.authenticator
+		kubeClient         = auth.KubernetesClient
 		queue              = auth.SQSClient
 		scalingGroupClient = auth.ScalingGroupClient
 		url                = event.queueURL
@@ -117,6 +122,8 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 
 	log.Errorf("event %v has failed processing: %v", event.RequestID, err)
 	mgr.failedEvents++
+	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, err)
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msg, event.referencedNode.Name))
 
 	if abandon {
 		log.Warnf("abandoning instance %v", event.EC2InstanceID)
@@ -192,10 +199,11 @@ func (mgr *Manager) newPoller() {
 
 func (mgr *Manager) newWorker(message *sqs.Message) {
 	var (
-		auth  = mgr.authenticator
-		queue = auth.SQSClient
-		ctx   = &mgr.context
-		url   = getQueueURLByName(queue, ctx.QueueName)
+		auth       = mgr.authenticator
+		kubeClient = auth.KubernetesClient
+		queue      = auth.SQSClient
+		ctx        = &mgr.context
+		url        = getQueueURLByName(queue, ctx.QueueName)
 	)
 
 	// process messags from channel
@@ -227,6 +235,17 @@ func (mgr *Manager) newWorker(message *sqs.Message) {
 	}
 	event.SetHeartbeatInterval(heartbeatInterval)
 
+	node, exists := getNodeByInstance(kubeClient, event.EC2InstanceID)
+	if !exists {
+		err = errors.Errorf("instance %v is not seen in cluster nodes", event.EC2InstanceID)
+		mgr.RejectEvent(err, event)
+		return
+	}
+	event.SetReferencedNode(node)
+
+	msg := fmt.Sprintf(EventMessageLifecycleHookReceived, event.RequestID, event.EC2InstanceID)
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msg, event.referencedNode.Name))
+
 	err = mgr.Process(event)
 	if err != nil {
 		mgr.FailEvent(err, event, true)
@@ -237,17 +256,23 @@ func (mgr *Manager) newWorker(message *sqs.Message) {
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
 		ctx           = &mgr.context
+		kubeClient    = mgr.authenticator.KubernetesClient
 		kubectlPath   = mgr.context.KubectlLocalPath
 		drainTimeout  = ctx.DrainTimeoutSeconds
 		retryInterval = ctx.DrainRetryIntervalSeconds
+		successMsg    = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
 	)
 
 	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval)
 	if err != nil {
+		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
+		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, failMsg, event.referencedNode.Name))
 		return err
 	}
 	log.Infof("completed drain for node %v", event.referencedNode.Name)
 	event.SetDrainCompleted(true)
+
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, successMsg, event.referencedNode.Name))
 	return nil
 }
 
@@ -335,11 +360,15 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	// handle classic load balancers
 	for _, elbName := range activeLoadBalancers {
 		go func(elbName, instance string) {
+			defer wg.Done()
 			// deregister from classic-elb
 			log.Debugf("found %v in classic-elb %v, will deregister", instance, elbName)
 			err = deregisterInstance(elbClient, elbName, instance)
 			if err != nil {
 				errChannel <- err
+				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instance, elbName, err)
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msg, event.referencedNode.Name))
+				return
 			}
 
 			// wait for deregister/drain
@@ -347,18 +376,28 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			err = waitForDeregisterInstance(elbClient, elbName, instance)
 			if err != nil {
 				errChannel <- err
+				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instance, elbName, err)
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msg, event.referencedNode.Name))
+				return
 			}
-			wg.Done()
+
+			// publish event
+			msg := fmt.Sprintf(EventMessageInstanceDeregisterSucceeded, instance, elbName)
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterSucceeded, msg, event.referencedNode.Name))
 		}(elbName, instanceID)
 	}
 	// handle v2 load balancers / target groups
 	for arn, port := range activeTargetGroups {
 		go func(activeARN, instance string, activePort int64) {
+			defer wg.Done()
 			// deregister from alb
 			log.Debugf("found %v in target group %v, will deregister", instance, activeARN)
 			err = deregisterTarget(elbv2Client, activeARN, instance, activePort)
 			if err != nil {
 				errChannel <- err
+				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instance, activePort, activeARN, err)
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msg, event.referencedNode.Name))
+				return
 			}
 
 			// wait for deregister/drain
@@ -366,8 +405,14 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			err = waitForDeregisterTarget(elbv2Client, activeARN, instance, activePort)
 			if err != nil {
 				errChannel <- err
+				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instance, activePort, activeARN, err)
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msg, event.referencedNode.Name))
+				return
 			}
-			wg.Done()
+
+			// publish event
+			msg := fmt.Sprintf(EventMessageTargetDeregisterSucceeded, instance, activePort, activeARN)
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterSucceeded, msg, event.referencedNode.Name))
 		}(arn, instanceID, port)
 	}
 
@@ -397,17 +442,8 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 
 func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	var (
-		kubeClient = mgr.authenticator.KubernetesClient
-		asgClient  = mgr.authenticator.ScalingGroupClient
-		instanceID = event.EC2InstanceID
+		asgClient = mgr.authenticator.ScalingGroupClient
 	)
-
-	// validate instance-id exists as a node
-	node, exists := getNodeByInstance(kubeClient, instanceID)
-	if !exists {
-		return errors.Errorf("instance %v is not seen in cluster nodes", instanceID)
-	}
-	event.SetReferencedNode(node)
 
 	// send heartbeat at intervals
 	go sendHeartbeat(asgClient, event)
