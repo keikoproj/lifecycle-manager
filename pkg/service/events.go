@@ -11,8 +11,54 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// EventReason defines the reason of an event
 type EventReason string
+
+// EventLevel defines the level of an event
 type EventLevel string
+
+const (
+	// EventLevelNormal is the level of a normal event
+	EventLevelNormal = "Normal"
+	// EventLevelWarning is the level of a warning event
+	EventLevelWarning = "Warning"
+	// EventReasonLifecycleHookReceived is the reason for a lifecycle received event
+	EventReasonLifecycleHookReceived EventReason = "EventLifecycleHookReceived"
+	// EventMessageLifecycleHookReceived is the message for a lifecycle received event
+	EventMessageLifecycleHookReceived = "lifecycle hook for event %v was received, instance %v will begin processing"
+	// EventReasonLifecycleHookProcessed is the reason for a lifecycle successful processing event
+	EventReasonLifecycleHookProcessed EventReason = "EventLifecycleHookProcessed"
+	//EventMessageLifecycleHookProcessed is the message for a lifecycle successful processing event
+	EventMessageLifecycleHookProcessed = "lifecycle hook for event %v has completed processing, instance %v gracefully terminated"
+	// EventReasonLifecycleHookFailed is the reason for a lifecycle failed event
+	EventReasonLifecycleHookFailed EventReason = "EventLifecycleHookFailed"
+	// EventMessageLifecycleHookFailed is the message for a lifecycle failed event
+	EventMessageLifecycleHookFailed = "lifecycle hook for event %v has failed processing: %v"
+	// EventReasonNodeDrainSucceeded is the reason for a successful drain event
+	EventReasonNodeDrainSucceeded EventReason = "EventReasonNodeDrainSucceeded"
+	// EventMessageNodeDrainSucceeded is the message for a successful drain event
+	EventMessageNodeDrainSucceeded = "node %v has been drained successfully as a response to a termination event"
+	// EventReasonNodeDrainFailed is the reason for a failed drain event
+	EventReasonNodeDrainFailed EventReason = "EventReasonNodeDrainFailed"
+	// EventMessageNodeDrainFailed is the message for a failed drain event
+	EventMessageNodeDrainFailed = "node %v draining has failed: %v"
+	// EventReasonTargetDeregisterSucceeded is the reason for a successful target group deregister event
+	EventReasonTargetDeregisterSucceeded EventReason = "EventReasonTargetDeregisterSucceeded"
+	// EventMessageTargetDeregisterSucceeded is the message for a successful target group deregister event
+	EventMessageTargetDeregisterSucceeded = "target %v:%v has successfully deregistered from target group %v"
+	// EventReasonTargetDeregisterFailed is the reason for a successful drain event
+	EventReasonTargetDeregisterFailed EventReason = "EventReasonTargetDeregisterFailed"
+	// EventMessageTargetDeregisterFailed is the message for a successful drain event
+	EventMessageTargetDeregisterFailed = "target %v:%v has failed to deregistered from target group %v: %v"
+	// EventReasonInstanceDeregisterSucceeded is the reason for a successful target group deregister event
+	EventReasonInstanceDeregisterSucceeded EventReason = "EventReasonInstanceDeregisterSucceeded"
+	// EventMessageInstanceDeregisterSucceeded is the message for a successful target group deregister event
+	EventMessageInstanceDeregisterSucceeded = "instance %v has successfully deregistered from classic-elb %v"
+	// EventReasonInstanceDeregisterFailed is the reason for a successful classic elb deregister event
+	EventReasonInstanceDeregisterFailed EventReason = "EventReasonInstanceDeregisterFailed"
+	// EventMessageInstanceDeregisterFailed is the message for a successful classic elb deregister event
+	EventMessageInstanceDeregisterFailed = "instance %v has failed to deregistered from classic-elb %v: %v"
+)
 
 var (
 	// EventName is the default name for service events
@@ -20,36 +66,7 @@ var (
 	// EventNamespace is the default namespace in which events will be published in
 	EventNamespace = "default"
 
-	EventLevelNormal  = "Normal"
-	EventLevelWarning = "Warning"
-
-	EventReasonLifecycleHookReceived  EventReason = "EventLifecycleHookReceived"
-	EventMessageLifecycleHookReceived             = "lifecycle hook for event %v was received, instance %v will begin processing"
-
-	EventReasonLifecycleHookProcessed  EventReason = "EventLifecycleHookProcessed"
-	EventMessageLifecycleHookProcessed             = "lifecycle hook for event %v has completed processing, instance %v gracefully terminated"
-
-	EventReasonLifecycleHookFailed  EventReason = "EventLifecycleHookFailed"
-	EventMessageLifecycleHookFailed             = "lifecycle hook for event %v has failed processing: %v"
-
-	EventReasonNodeDrainSucceeded  EventReason = "EventReasonNodeDrainSucceeded"
-	EventMessageNodeDrainSucceeded             = "node %v has been drained successfully as a response to a termination event"
-
-	EventReasonNodeDrainFailed  EventReason = "EventReasonNodeDrainFailed"
-	EventMessageNodeDrainFailed             = "node %v draining has failed: %v"
-
-	EventReasonTargetDeregisterSucceeded  EventReason = "EventReasonTargetDeregisterSucceeded"
-	EventMessageTargetDeregisterSucceeded             = "target %v:%v has successfully deregistered from target group %v"
-
-	EventReasonTargetDeregisterFailed  EventReason = "EventReasonTargetDeregisterFailed"
-	EventMessageTargetDeregisterFailed             = "target %v:%v has failed to deregistered from target group %v: %v"
-
-	EventReasonInstanceDeregisterSucceeded  EventReason = "EventReasonInstanceDeregisterSucceeded"
-	EventMessageInstanceDeregisterSucceeded             = "instance %v has successfully deregistered from classic-elb %v"
-
-	EventReasonInstanceDeregisterFailed  EventReason = "EventReasonInstanceDeregisterFailed"
-	EventMessageInstanceDeregisterFailed             = "instance %v has failed to deregistered from classic-elb %v: %v"
-
+	// EventLevels is a map of event reasons and their event level
 	EventLevels = map[EventReason]string{
 		EventReasonLifecycleHookReceived:       EventLevelNormal,
 		EventReasonLifecycleHookProcessed:      EventLevelNormal,
