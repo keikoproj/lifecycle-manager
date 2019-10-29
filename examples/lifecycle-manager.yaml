@@ -70,8 +70,9 @@ spec:
               memory: 100Mi
           command:
             - /bin/lifecycle-manager
-            - --queue-name lifecycle-manager-queue
-            - --region us-west-2
+            - serve
+            - --queue-name=lifecycle-manager-queue
+            - --region=us-west-2
           volumeMounts:
             - name: ssl-certs
               mountPath: /etc/ssl/certs/ca-certificates.crt
