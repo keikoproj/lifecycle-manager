@@ -102,6 +102,7 @@ func Test_FailHandler(t *testing.T) {
 		LifecycleActionToken: "cc34960c-1e41-4703-a665-bdb3e5b81ad3",
 		receiptHandle:        "MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw=",
 		heartbeatInterval:    2,
+		startTime:            time.Now().Add(time.Duration(-1) * time.Second),
 	}
 
 	mgr := New(auth, ctx)
