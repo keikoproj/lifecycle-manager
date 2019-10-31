@@ -45,7 +45,7 @@ func findInstanceInTargetGroup(elbClient elbv2iface.ELBV2API, arn, instanceID st
 
 	target, err := elbClient.DescribeTargetHealth(input)
 	if err != nil {
-	        log.Infof("Failed while finding instance %v in all target groups: %v", instanceID, err.Error())
+	        log.Infof("failed finding instance %v in target group %v: %v", instanceID, arn, err.Error())
 		return false, 0, err
 	}
 	for _, desc := range target.TargetHealthDescriptions {
