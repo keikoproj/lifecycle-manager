@@ -29,11 +29,11 @@ const (
 	// EventReasonLifecycleHookProcessed is the reason for a lifecycle successful processing event
 	EventReasonLifecycleHookProcessed EventReason = "EventLifecycleHookProcessed"
 	//EventMessageLifecycleHookProcessed is the message for a lifecycle successful processing event
-	EventMessageLifecycleHookProcessed = "lifecycle hook for event %v has completed processing, instance %v gracefully terminated"
+	EventMessageLifecycleHookProcessed = "lifecycle hook for event %v has completed processing, instance %v gracefully terminated after %vs"
 	// EventReasonLifecycleHookFailed is the reason for a lifecycle failed event
 	EventReasonLifecycleHookFailed EventReason = "EventLifecycleHookFailed"
 	// EventMessageLifecycleHookFailed is the message for a lifecycle failed event
-	EventMessageLifecycleHookFailed = "lifecycle hook for event %v has failed processing: %v"
+	EventMessageLifecycleHookFailed = "lifecycle hook for event %v has failed processing after %vs: %v"
 	// EventReasonNodeDrainSucceeded is the reason for a successful drain event
 	EventReasonNodeDrainSucceeded EventReason = "EventReasonNodeDrainSucceeded"
 	// EventMessageNodeDrainSucceeded is the message for a successful drain event

@@ -16,16 +16,19 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["nodes"]
-  verbs: ["get", "list"]
+  verbs: ["get", "list", "patch"]
 - apiGroups: [""]
-  resources: ["events"]
-  verbs: ["get", "list", "create"]
+  resources: ["pods"]
+  verbs: ["get", "list"]
 - apiGroups: [""]
   resources: ["pods/eviction"]
   verbs: ["create"]
 - apiGroups: ["extensions", "apps"]
   resources: ["daemonsets"]
   verbs: ["get"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list", "create"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -70,8 +73,9 @@ spec:
               memory: 100Mi
           command:
             - /bin/lifecycle-manager
-            - --queue-name lifecycle-manager-queue
-            - --region us-west-2
+            - serve
+            - --queue-name=lifecycle-manager-queue
+            - --region=us-west-2
           volumeMounts:
             - name: ssl-certs
               mountPath: /etc/ssl/certs/ca-certificates.crt

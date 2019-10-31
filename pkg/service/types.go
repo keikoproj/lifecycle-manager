@@ -2,6 +2,7 @@ package service
 
 import (
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 
@@ -69,6 +70,7 @@ type LifecycleEvent struct {
 	drainCompleted       bool
 	deregisterCompleted  bool
 	eventCompleted       bool
+	startTime            time.Time
 }
 
 func (e *LifecycleEvent) IsValid() bool {
@@ -120,3 +122,6 @@ func (e *LifecycleEvent) SetDeregisterCompleted(val bool) { e.deregisterComplete
 
 // SetEventCompleted is a setter method for status of the drain operation
 func (e *LifecycleEvent) SetEventCompleted(val bool) { e.eventCompleted = val }
+
+// SetEventTimeStarted is a setter method for the time an event started
+func (e *LifecycleEvent) SetEventTimeStarted(t time.Time) { e.startTime = t }

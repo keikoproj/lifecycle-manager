@@ -73,6 +73,7 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 
 func (mgr *Manager) AddEvent(event *LifecycleEvent) {
 	mgr.workQueueSync.Lock()
+	event.SetEventTimeStarted(time.Now())
 	mgr.workQueue = append(mgr.workQueue, event)
 	mgr.workQueueSync.Unlock()
 }
@@ -83,6 +84,7 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 		kubeClient = mgr.authenticator.KubernetesClient
 		asgClient  = mgr.authenticator.ScalingGroupClient
 		url        = event.queueURL
+		t          = time.Since(event.startTime).Seconds()
 	)
 	newQueue := make([]*LifecycleEvent, 0)
 	for _, e := range mgr.workQueue {
@@ -99,7 +101,7 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 			if err != nil {
 				log.Errorf("failed to complete lifecycle action: %v", err)
 			}
-			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID)
+			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID, t)
 			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msg, event.referencedNode.Name))
 		} else {
 			newQueue = append(newQueue, e)
@@ -108,6 +110,7 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 	mgr.workQueueSync.Lock()
 	mgr.workQueue = newQueue
 	mgr.completedEvents++
+	log.Infof("event %v for instance %v completed after %vs", event.RequestID, event.EC2InstanceID, t)
 	mgr.workQueueSync.Unlock()
 }
 
@@ -118,11 +121,11 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 		queue              = auth.SQSClient
 		scalingGroupClient = auth.ScalingGroupClient
 		url                = event.queueURL
+		t                  = time.Since(event.startTime).Seconds()
 	)
-
-	log.Errorf("event %v has failed processing: %v", event.RequestID, err)
+	log.Errorf("event %v has failed processing after %vs: %v", event.RequestID, t, err)
 	mgr.failedEvents++
-	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, err)
+	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
 	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msg, event.referencedNode.Name))
 
 	if abandon {
