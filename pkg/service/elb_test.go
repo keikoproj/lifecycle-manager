@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -40,6 +41,54 @@ func (e *stubELB) DescribeLoadBalancers(input *elb.DescribeLoadBalancersInput) (
 }
 
 func (e *stubELB) DescribeLoadBalancersPages(input *elb.DescribeLoadBalancersInput, callback func(*elb.DescribeLoadBalancersOutput, bool) bool) error {
+	page, err := e.DescribeLoadBalancers(input)
+	if err != nil {
+		return err
+	}
+
+	callback(page, false)
+
+	return nil
+}
+
+type stubErrorELB struct {
+	elbiface.ELBAPI
+	instanceStates                    []*elb.InstanceState
+	loadBalancerDescriptions          []*elb.LoadBalancerDescription
+	timesCalledDescribeInstanceHealth int
+	timesCalledDeregisterInstances    int
+	timesCalledDescribeLoadBalancers  int
+	failHint                          string
+}
+
+func (e *stubErrorELB) WaitUntilInstanceDeregisteredWithContext(ctx context.Context, input *elb.DescribeInstanceHealthInput, req ...request.WaiterOption) error {
+	var err error
+	if e.failHint == "WaitUntilInstanceDeregisteredWithContext" {
+		err = fmt.Errorf("inject error, DeregisterTargets")
+	}
+	return err
+}
+
+func (e *stubErrorELB) DescribeInstanceHealth(input *elb.DescribeInstanceHealthInput) (*elb.DescribeInstanceHealthOutput, error) {
+	e.timesCalledDescribeInstanceHealth++
+	return &elb.DescribeInstanceHealthOutput{InstanceStates: e.instanceStates}, nil
+}
+
+func (e *stubErrorELB) DeregisterInstancesFromLoadBalancer(input *elb.DeregisterInstancesFromLoadBalancerInput) (*elb.DeregisterInstancesFromLoadBalancerOutput, error) {
+	e.timesCalledDeregisterInstances++
+	var err error
+	if e.failHint == "DeregisterInstancesFromLoadBalancer" {
+		err = fmt.Errorf("inject error, DeregisterTargets")
+	}
+	return &elb.DeregisterInstancesFromLoadBalancerOutput{}, err
+}
+
+func (e *stubErrorELB) DescribeLoadBalancers(input *elb.DescribeLoadBalancersInput) (*elb.DescribeLoadBalancersOutput, error) {
+	e.timesCalledDescribeLoadBalancers++
+	return &elb.DescribeLoadBalancersOutput{LoadBalancerDescriptions: e.loadBalancerDescriptions}, nil
+}
+
+func (e *stubErrorELB) DescribeLoadBalancersPages(input *elb.DescribeLoadBalancersInput, callback func(*elb.DescribeLoadBalancersOutput, bool) bool) error {
 	page, err := e.DescribeLoadBalancers(input)
 	if err != nil {
 		return err

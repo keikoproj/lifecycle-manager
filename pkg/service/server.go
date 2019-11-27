@@ -107,7 +107,13 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 				log.Errorf("failed to complete lifecycle action: %v", err)
 			}
 			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID, t)
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msg, event.referencedNode.Name))
+			msgFields := map[string]string{
+				"eventID":       event.RequestID,
+				"ec2InstanceId": event.EC2InstanceID,
+				"asgName":       event.AutoScalingGroupName,
+				"details":       msg,
+			}
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msgFields, event.referencedNode.Name))
 		} else {
 			newQueue = append(newQueue, e)
 		}
@@ -132,11 +138,20 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	mgr.failedEvents++
 	event.SetEventCompleted(true)
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msg, event.referencedNode.Name))
+	msgFields := map[string]string{
+		"eventID":       event.RequestID,
+		"ec2InstanceId": event.EC2InstanceID,
+		"asgName":       event.AutoScalingGroupName,
+		"details":       msg,
+	}
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msgFields, event.referencedNode.Name))
 
 	if abandon {
 		log.Warnf("abandoning instance %v", event.EC2InstanceID)
-		completeLifecycleAction(scalingGroupClient, *event, AbandonAction)
+		err := completeLifecycleAction(scalingGroupClient, *event, AbandonAction)
+		if err != nil {
+			log.Errorf("completeLifecycleAction Failed, %s", err)
+		}
 	}
 
 	if reflect.DeepEqual(event, LifecycleEvent{}) {
@@ -253,7 +268,13 @@ func (mgr *Manager) newWorker(message *sqs.Message) {
 	event.SetReferencedNode(node)
 
 	msg := fmt.Sprintf(EventMessageLifecycleHookReceived, event.RequestID, event.EC2InstanceID)
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msg, event.referencedNode.Name))
+	msgFields := map[string]string{
+		"eventID":       event.RequestID,
+		"ec2InstanceId": event.EC2InstanceID,
+		"asgName":       event.AutoScalingGroupName,
+		"details":       msg,
+	}
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msgFields, event.referencedNode.Name))
 
 	err = mgr.Process(event)
 	if err != nil {
@@ -275,13 +296,25 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval)
 	if err != nil {
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
-		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, failMsg, event.referencedNode.Name))
+		msgFields := map[string]string{
+			"eventID":       event.RequestID,
+			"ec2InstanceId": event.EC2InstanceID,
+			"asgName":       event.AutoScalingGroupName,
+			"details":       failMsg,
+		}
+		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, msgFields, event.referencedNode.Name))
 		return err
 	}
 	log.Infof("completed drain for node %v", event.referencedNode.Name)
 	event.SetDrainCompleted(true)
 
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, successMsg, event.referencedNode.Name))
+	msgFields := map[string]string{
+		"eventID":       event.RequestID,
+		"ec2InstanceId": event.EC2InstanceID,
+		"asgName":       event.AutoScalingGroupName,
+		"details":       successMsg,
+	}
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, msgFields, event.referencedNode.Name))
 	return nil
 }
 
@@ -384,7 +417,13 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			if err != nil {
 				errChannel <- err
 				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instance, elbName, err)
-				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msg, event.referencedNode.Name))
+				msgFields := map[string]string{
+					"elbName":       elbName,
+					"ec2InstanceId": instance,
+					"elbType":       "classic-elb",
+					"details":       msg,
+				}
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, event.referencedNode.Name))
 				return
 			}
 
@@ -394,13 +433,25 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			if err != nil {
 				errChannel <- err
 				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instance, elbName, err)
-				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msg, event.referencedNode.Name))
+				msgFields := map[string]string{
+					"elbName":       elbName,
+					"ec2InstanceId": instance,
+					"elbType":       "classic-elb",
+					"details":       msg,
+				}
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, event.referencedNode.Name))
 				return
 			}
 
 			// publish event
 			msg := fmt.Sprintf(EventMessageInstanceDeregisterSucceeded, instance, elbName)
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterSucceeded, msg, event.referencedNode.Name))
+			msgFields := map[string]string{
+				"elbName":       elbName,
+				"ec2InstanceId": instance,
+				"elbType":       "classic-elb",
+				"details":       msg,
+			}
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterSucceeded, msgFields, event.referencedNode.Name))
 		}(elbName, instanceID)
 	}
 	// handle v2 load balancers / target groups
@@ -417,7 +468,14 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			if err != nil {
 				errChannel <- err
 				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instance, activePort, activeARN, err)
-				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msg, event.referencedNode.Name))
+				msgFields := map[string]string{
+					"port":          fmt.Sprintf("%d", activePort),
+					"targetGroup":   activeARN,
+					"ec2InstanceId": instance,
+					"elbType":       "alb",
+					"details":       msg,
+				}
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msgFields, event.referencedNode.Name))
 				return
 			}
 
@@ -427,13 +485,27 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			if err != nil {
 				errChannel <- err
 				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instance, activePort, activeARN, err)
-				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msg, event.referencedNode.Name))
+				msgFields := map[string]string{
+					"port":          fmt.Sprintf("%d", activePort),
+					"targetGroup":   activeARN,
+					"ec2InstanceId": instance,
+					"elbType":       "alb",
+					"details":       msg,
+				}
+				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msgFields, event.referencedNode.Name))
 				return
 			}
 
 			// publish event
 			msg := fmt.Sprintf(EventMessageTargetDeregisterSucceeded, instance, activePort, activeARN)
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterSucceeded, msg, event.referencedNode.Name))
+			msgFields := map[string]string{
+				"port":          fmt.Sprintf("%d", activePort),
+				"targetGroup":   activeARN,
+				"ec2InstanceId": instance,
+				"elbType":       "alb",
+				"details":       msg,
+			}
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterSucceeded, msgFields, event.referencedNode.Name))
 		}(arn, instanceID, port)
 	}
 
