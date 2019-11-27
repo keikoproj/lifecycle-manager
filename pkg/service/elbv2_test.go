@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -40,6 +41,54 @@ func (e *stubELBv2) DescribeTargetGroups(input *elbv2.DescribeTargetGroupsInput)
 }
 
 func (e *stubELBv2) DescribeTargetGroupsPages(input *elbv2.DescribeTargetGroupsInput, callback func(*elbv2.DescribeTargetGroupsOutput, bool) bool) error {
+	page, err := e.DescribeTargetGroups(input)
+	if err != nil {
+		return err
+	}
+
+	callback(page, false)
+
+	return nil
+}
+
+type stubErrorELBv2 struct {
+	elbv2iface.ELBV2API
+	targetHealthDescriptions        []*elbv2.TargetHealthDescription
+	targetGroups                    []*elbv2.TargetGroup
+	timesCalledDescribeTargetHealth int
+	timesCalledDeregisterTargets    int
+	timesCalledDescribeTargetGroups int
+	failHint                        string
+}
+
+func (e *stubErrorELBv2) WaitUntilTargetDeregisteredWithContext(ctx context.Context, input *elbv2.DescribeTargetHealthInput, req ...request.WaiterOption) error {
+	var err error
+	if e.failHint == "WaitUntilTargetDeregisteredWithContext" {
+		err = fmt.Errorf("inject error, DeregisterTargets")
+	}
+	return err
+}
+
+func (e *stubErrorELBv2) DescribeTargetHealth(input *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error) {
+	e.timesCalledDescribeTargetHealth++
+	return &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: e.targetHealthDescriptions}, nil
+}
+
+func (e *stubErrorELBv2) DeregisterTargets(input *elbv2.DeregisterTargetsInput) (*elbv2.DeregisterTargetsOutput, error) {
+	e.timesCalledDeregisterTargets++
+	var err error
+	if e.failHint == "DeregisterTargets" {
+		err = fmt.Errorf("inject error, DeregisterTargets")
+	}
+	return &elbv2.DeregisterTargetsOutput{}, err
+}
+
+func (e *stubErrorELBv2) DescribeTargetGroups(input *elbv2.DescribeTargetGroupsInput) (*elbv2.DescribeTargetGroupsOutput, error) {
+	e.timesCalledDescribeTargetGroups++
+	return &elbv2.DescribeTargetGroupsOutput{TargetGroups: e.targetGroups}, nil
+}
+
+func (e *stubErrorELBv2) DescribeTargetGroupsPages(input *elbv2.DescribeTargetGroupsInput, callback func(*elbv2.DescribeTargetGroupsOutput, bool) bool) error {
 	page, err := e.DescribeTargetGroups(input)
 	if err != nil {
 		return err
