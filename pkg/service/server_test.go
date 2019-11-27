@@ -118,6 +118,11 @@ func Test_FailHandler(t *testing.T) {
 	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
 		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
 	}
+
+	expectedEventCompleted := true
+	if event.eventCompleted != expectedEventCompleted {
+		t.Fatalf("expected event completed: %v, got: %v", expectedEventCompleted, event.eventCompleted)
+	}
 }
 
 func Test_Process(t *testing.T) {
