@@ -130,6 +130,7 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	)
 	log.Errorf("event %v has failed processing after %vs: %v", event.RequestID, t, err)
 	mgr.failedEvents++
+	event.SetEventCompleted(true)
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
 	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msg, event.referencedNode.Name))
 
