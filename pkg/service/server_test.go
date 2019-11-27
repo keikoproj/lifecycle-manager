@@ -16,6 +16,11 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+func init() {
+	ThreadJitterRangeSeconds = 1
+	DeregisterJitterRangeSeconds = 1
+}
+
 func Test_RejectHandler(t *testing.T) {
 	t.Log("Test_RejectHandler: should handle rejections")
 	var (

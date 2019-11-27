@@ -43,7 +43,7 @@ var (
 	DefaultRetryer = client.DefaultRetryer{
 		NumMaxRetries:    250,
 		MinThrottleDelay: time.Second * 5,
-		MaxThrottleDelay: time.Second * 20,
+		MaxThrottleDelay: time.Second * 60,
 		MinRetryDelay:    time.Second * 1,
 		MaxRetryDelay:    time.Second * 5,
 	}
