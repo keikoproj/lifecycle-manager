@@ -367,7 +367,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	// create goroutine per target group with target match
 	wg.Add(workQueueLength)
 
-	// sleep for random 0-180 seconds to goroutine
+	// sleep for random jitter per goroutine
 	waitJitter(ThreadJitterRangeSeconds)
 
 	// handle classic load balancers
