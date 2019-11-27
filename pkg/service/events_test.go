@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -12,7 +13,13 @@ func Test_NewEvent(t *testing.T) {
 	t.Log("Test_NewEvent: should be able to get a new kubernetes event")
 	referencedNode := "ip-10-10-10-10"
 	msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, "i-123456789012", "my-load-balancer", "some bad error occured")
-	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msg, referencedNode)
+	msgFields := map[string]string{
+		"ec2InstanceId": "i-123456789012",
+		"loadBalancer":  "my-load-balancer",
+		"error":         "some bad error occured",
+		"details":       msg,
+	}
+	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, referencedNode)
 
 	if event.Reason != string(EventReasonInstanceDeregisterFailed) {
 		t.Fatalf("expected event.Reason to be: %v, got: %v", string(EventReasonInstanceDeregisterFailed), event.Reason)
@@ -22,8 +29,15 @@ func Test_NewEvent(t *testing.T) {
 		t.Fatalf("expected event.InvolvedObject.Name to be: %v, got: %v", referencedNode, event.InvolvedObject.Name)
 	}
 
-	if event.Message != msg {
-		t.Fatalf("expected event.Message to be: %v, got: %v", msg, event.Message)
+	// decode the JSON
+	var msgPayload map[string]string
+	err := json.Unmarshal([]byte(event.Message), &msgPayload)
+	if err != nil {
+		t.Fatalf("json.Unmarshal Failed, %s", err)
+	}
+
+	if msg != msgPayload["details"] {
+		t.Fatalf("expected event.Message to be: %v, got: %v", msg, msgPayload["details"])
 	}
 
 }
@@ -33,7 +47,13 @@ func Test_PublishEvent(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset()
 	referencedNode := "ip-10-10-10-10"
 	msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, "i-123456789012", "my-load-balancer", "some bad error occured")
-	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msg, referencedNode)
+	msgFields := map[string]string{
+		"ec2InstanceId": "i-123456789012",
+		"loadBalancer":  "my-load-balancer",
+		"error":         "some bad error occured",
+		"details":       msg,
+	}
+	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, referencedNode)
 
 	publishKubernetesEvent(kubeClient, event)
 	expectedEvents := 1

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -95,18 +96,29 @@ func getReasonEventLevel(reason EventReason) string {
 	return "Normal"
 }
 
-func newKubernetesEvent(reason EventReason, message string, refNodeName string) *v1.Event {
+// FIXME: msgFields should be map[string]string
+func newKubernetesEvent(reason EventReason, msgFields interface{}, refNodeName string) *v1.Event {
 	var objReference v1.ObjectReference
 	if refNodeName != "" {
 		objReference = v1.ObjectReference{Kind: "Node", Name: refNodeName}
 	}
+
+	// Marshal as JSON
+	b, err := json.Marshal(msgFields)
+	msgPayload := string(b)
+	if err != nil {
+		log.Errorf("json.Marshal Failed, %s", err)
+		// let's convert map to string since encoding as JSON is failing. At the least the information will be conveyed
+		msgPayload = fmt.Sprintf("%v", msgFields)
+	}
+
 	event := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(EventName, time.Now().UnixNano()),
 			Namespace: EventNamespace,
 		},
 		Reason:  string(reason),
-		Message: string(message),
+		Message: msgPayload,
 		Type:    getReasonEventLevel(reason),
 		LastTimestamp: metav1.Time{
 			Time: time.Now(),
