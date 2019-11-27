@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -15,12 +14,10 @@ import (
 func waitForDeregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) error {
 	var (
 		MaxAttempts = 500
-		ConstDelay  = request.ConstantWaiterDelay(10 * time.Second)
 	)
 
 	waiterOpts := []request.WaiterOption{
 		request.WithWaiterMaxAttempts(MaxAttempts),
-		request.WithWaiterDelay(ConstDelay),
 	}
 	input := &elb.DescribeInstanceHealthInput{
 		LoadBalancerName: aws.String(elbName),

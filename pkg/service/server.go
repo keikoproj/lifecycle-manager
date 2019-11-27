@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
 	"runtime"
 	"sync"
@@ -27,6 +28,10 @@ var (
 	ExcludeLabelKey = "alpha.service-controller.kubernetes.io/exclude-balancer"
 	// ExcludeLabelValue is the alb-ingress-controller exclude label value
 	ExcludeLabelValue = "true"
+	// ThreadJitterRangeSeconds configures the jitter range in seconds 0 to N per handler goroutine
+	ThreadJitterRangeSeconds = 180
+	// DeregisterJitterRangeSeconds configures the jitter range in seconds 0 to N per ELB/ALB deregister goroutine
+	DeregisterJitterRangeSeconds = 30
 )
 
 // Start starts the lifecycle-manager service
@@ -125,6 +130,7 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	)
 	log.Errorf("event %v has failed processing after %vs: %v", event.RequestID, t, err)
 	mgr.failedEvents++
+	event.SetEventCompleted(true)
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
 	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msg, event.referencedNode.Name))
 
@@ -360,8 +366,16 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 
 	// create goroutine per target group with target match
 	wg.Add(workQueueLength)
+
+	// sleep for random 0-180 seconds to goroutine
+	waitJitter(ThreadJitterRangeSeconds)
+
 	// handle classic load balancers
 	for _, elbName := range activeLoadBalancers {
+
+		// sleep for random jitter between iterations of deregister
+		waitJitter(DeregisterJitterRangeSeconds)
+
 		go func(elbName, instance string) {
 			defer wg.Done()
 			// deregister from classic-elb
@@ -391,6 +405,10 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	}
 	// handle v2 load balancers / target groups
 	for arn, port := range activeTargetGroups {
+
+		// sleep for random jitter between iterations of deregister
+		waitJitter(DeregisterJitterRangeSeconds)
+
 		go func(activeARN, instance string, activePort int64) {
 			defer wg.Done()
 			// deregister from alb
@@ -464,4 +482,11 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	}
 
 	return nil
+}
+
+func waitJitter(rangeSeconds int) {
+	rand.Seed(time.Now().UnixNano())
+	n := rand.Intn(rangeSeconds)
+	log.Infof("adding jitter of %d seconds to waiter", n)
+	time.Sleep(time.Duration(n) * time.Second)
 }
