@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -15,13 +14,12 @@ import (
 func waitForDeregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	var (
 		MaxAttempts = 500
-		ConstDelay  = request.ConstantWaiterDelay(10 * time.Second)
 	)
 
 	waiterOpts := []request.WaiterOption{
 		request.WithWaiterMaxAttempts(MaxAttempts),
-		request.WithWaiterDelay(ConstDelay),
 	}
+
 	input := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(arn),
 		Targets: []*elbv2.TargetDescription{
@@ -31,6 +29,7 @@ func waitForDeregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID stri
 			},
 		},
 	}
+
 	err := elbClient.WaitUntilTargetDeregisteredWithContext(context.Background(), input, waiterOpts...)
 	if err != nil {
 		return err

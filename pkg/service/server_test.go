@@ -16,6 +16,11 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+func init() {
+	ThreadJitterRangeSeconds = 1
+	DeregisterJitterRangeSeconds = 1
+}
+
 func Test_RejectHandler(t *testing.T) {
 	t.Log("Test_RejectHandler: should handle rejections")
 	var (
@@ -117,6 +122,11 @@ func Test_FailHandler(t *testing.T) {
 	expectedDeleteMessageEvents := 1
 	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
 		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
+	}
+
+	expectedEventCompleted := true
+	if event.eventCompleted != expectedEventCompleted {
+		t.Fatalf("expected event completed: %v, got: %v", expectedEventCompleted, event.eventCompleted)
 	}
 }
 
