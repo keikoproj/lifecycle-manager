@@ -12,6 +12,7 @@ import (
 
 func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent) {
 	var (
+		iterationCount      = 0
 		interval            = event.heartbeatInterval
 		instanceID          = event.EC2InstanceID
 		scalingGroupName    = event.AutoScalingGroupName
@@ -19,9 +20,18 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 	)
 
 	log.Debugf("scaling-group = %v, maxInterval = %v, heartbeat = %v", scalingGroupName, interval, recommendedInterval)
+
+	// max time to process an event is capped at 1hr
+	maxIterations := int(3600 / recommendedInterval)
+
 	for {
+		iterationCount++
 		time.Sleep(time.Duration(recommendedInterval) * time.Second)
 		if event.eventCompleted {
+			return
+		}
+		if iterationCount >= maxIterations {
+			// hard limit in case event is not marked completed
 			return
 		}
 		log.Infof("sending heartbeat for %v", instanceID)
