@@ -7,6 +7,7 @@ This document will also assume a running Kubernetes cluster on AWS.
 
 You can run the `main.go` file with the appropriate command line arguments to invoke lifecycle-manager locally.
 The `--local-mode` flag tells lifecycle-manager to use a local kubeconfig from the provided path instead of `InClusterAuth`.
+You might want to export/set AWS credentials or profile if you are running in local mode.
 
 Make sure you already have an autoscaling group configured to post lifecycle hooks to an SQS queue.
 
