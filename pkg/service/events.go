@@ -96,8 +96,7 @@ func getReasonEventLevel(reason EventReason) string {
 	return "Normal"
 }
 
-// FIXME: msgFields should be map[string]string
-func newKubernetesEvent(reason EventReason, msgFields interface{}, refNodeName string) *v1.Event {
+func newKubernetesEvent(reason EventReason, msgFields map[string]string, refNodeName string) *v1.Event {
 	var objReference v1.ObjectReference
 	if refNodeName != "" {
 		objReference = v1.ObjectReference{Kind: "Node", Name: refNodeName}
@@ -106,6 +105,8 @@ func newKubernetesEvent(reason EventReason, msgFields interface{}, refNodeName s
 	// Marshal as JSON
 	b, err := json.Marshal(msgFields)
 	msgPayload := string(b)
+	// I think it is very tough to trigger this error since json.Marshal function can return two types of errors
+	// UnsupportedTypeError or UnsupportedValueError. Since our type is very rigid, these errors won't be triggered.
 	if err != nil {
 		log.Errorf("json.Marshal Failed, %s", err)
 		// let's convert map to string since encoding as JSON is failing. At the least the information will be conveyed
