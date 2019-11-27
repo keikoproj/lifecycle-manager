@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+
++ Documentation fixes (#19, #20)
++ Logging improvements and fixes (#21, #16)
++ Event publishing improvements (#26)
++ Better mechanism for AWS API calls to avoid being throttled (#25)
++ Bug fix: complete events when they fail (#27)
+
 ## 0.3.0
 
 + Improved error handling
