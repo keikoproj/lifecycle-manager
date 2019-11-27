@@ -32,6 +32,7 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 		}
 		if iterationCount >= maxIterations {
 			// hard limit in case event is not marked completed
+			log.Debugf("heartbeat extended over threshold, instance will be abandoned")
 			return
 		}
 		log.Infof("sending heartbeat for %v", instanceID)
