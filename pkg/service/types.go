@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
@@ -30,15 +32,47 @@ type Manager struct {
 	context         ManagerContext
 	workQueue       []*LifecycleEvent
 	workQueueSync   *sync.Mutex
+	metrics         *MetricsServer
+	avarageLatency  float64
 	completedEvents int
 	rejectedEvents  int
 	failedEvents    int
+}
+
+type MetricsServer struct {
+	Counters map[string]prometheus.Counter
+	Gauges   map[string]prometheus.Gauge
+}
+
+func (m *MetricsServer) AddCounter(idx string, value float64) {
+	if val, ok := m.Counters[idx]; ok {
+		val.Add(value)
+	}
+}
+
+func (m *MetricsServer) SetGauge(idx string, value float64) {
+	if val, ok := m.Gauges[idx]; ok {
+		val.Set(value)
+	}
+}
+
+func (m *MetricsServer) IncGauge(idx string) {
+	if val, ok := m.Gauges[idx]; ok {
+		val.Inc()
+	}
+}
+
+func (m *MetricsServer) DecGauge(idx string) {
+	if val, ok := m.Gauges[idx]; ok {
+		val.Dec()
+	}
 }
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
 		eventStream:   make(chan *sqs.Message, 0),
 		workQueue:     make([]*LifecycleEvent, 0),
+		metrics:       &MetricsServer{},
 		workQueueSync: &sync.Mutex{},
 		authenticator: auth,
 		context:       ctx,
