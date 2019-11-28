@@ -24,39 +24,39 @@ const (
 	// EventLevelWarning is the level of a warning event
 	EventLevelWarning = "Warning"
 	// EventReasonLifecycleHookReceived is the reason for a lifecycle received event
-	EventReasonLifecycleHookReceived EventReason = "EventLifecycleHookReceived"
+	EventReasonLifecycleHookReceived EventReason = "LifecycleHookReceived"
 	// EventMessageLifecycleHookReceived is the message for a lifecycle received event
 	EventMessageLifecycleHookReceived = "lifecycle hook for event %v was received, instance %v will begin processing"
 	// EventReasonLifecycleHookProcessed is the reason for a lifecycle successful processing event
-	EventReasonLifecycleHookProcessed EventReason = "EventLifecycleHookProcessed"
+	EventReasonLifecycleHookProcessed EventReason = "LifecycleHookProcessed"
 	//EventMessageLifecycleHookProcessed is the message for a lifecycle successful processing event
 	EventMessageLifecycleHookProcessed = "lifecycle hook for event %v has completed processing, instance %v gracefully terminated after %vs"
 	// EventReasonLifecycleHookFailed is the reason for a lifecycle failed event
-	EventReasonLifecycleHookFailed EventReason = "EventLifecycleHookFailed"
+	EventReasonLifecycleHookFailed EventReason = "LifecycleHookFailed"
 	// EventMessageLifecycleHookFailed is the message for a lifecycle failed event
 	EventMessageLifecycleHookFailed = "lifecycle hook for event %v has failed processing after %vs: %v"
 	// EventReasonNodeDrainSucceeded is the reason for a successful drain event
-	EventReasonNodeDrainSucceeded EventReason = "EventReasonNodeDrainSucceeded"
+	EventReasonNodeDrainSucceeded EventReason = "NodeDrainSucceeded"
 	// EventMessageNodeDrainSucceeded is the message for a successful drain event
 	EventMessageNodeDrainSucceeded = "node %v has been drained successfully as a response to a termination event"
 	// EventReasonNodeDrainFailed is the reason for a failed drain event
-	EventReasonNodeDrainFailed EventReason = "EventReasonNodeDrainFailed"
+	EventReasonNodeDrainFailed EventReason = "NodeDrainFailed"
 	// EventMessageNodeDrainFailed is the message for a failed drain event
 	EventMessageNodeDrainFailed = "node %v draining has failed: %v"
 	// EventReasonTargetDeregisterSucceeded is the reason for a successful target group deregister event
-	EventReasonTargetDeregisterSucceeded EventReason = "EventReasonTargetDeregisterSucceeded"
+	EventReasonTargetDeregisterSucceeded EventReason = "TargetDeregisterSucceeded"
 	// EventMessageTargetDeregisterSucceeded is the message for a successful target group deregister event
 	EventMessageTargetDeregisterSucceeded = "target %v:%v has successfully deregistered from target group %v"
 	// EventReasonTargetDeregisterFailed is the reason for a successful drain event
-	EventReasonTargetDeregisterFailed EventReason = "EventReasonTargetDeregisterFailed"
+	EventReasonTargetDeregisterFailed EventReason = "TargetDeregisterFailed"
 	// EventMessageTargetDeregisterFailed is the message for a successful drain event
 	EventMessageTargetDeregisterFailed = "target %v:%v has failed to deregistered from target group %v: %v"
 	// EventReasonInstanceDeregisterSucceeded is the reason for a successful target group deregister event
-	EventReasonInstanceDeregisterSucceeded EventReason = "EventReasonInstanceDeregisterSucceeded"
+	EventReasonInstanceDeregisterSucceeded EventReason = "InstanceDeregisterSucceeded"
 	// EventMessageInstanceDeregisterSucceeded is the message for a successful target group deregister event
 	EventMessageInstanceDeregisterSucceeded = "instance %v has successfully deregistered from classic-elb %v"
 	// EventReasonInstanceDeregisterFailed is the reason for a successful classic elb deregister event
-	EventReasonInstanceDeregisterFailed EventReason = "EventReasonInstanceDeregisterFailed"
+	EventReasonInstanceDeregisterFailed EventReason = "InstanceDeregisterFailed"
 	// EventMessageInstanceDeregisterFailed is the message for a successful classic elb deregister event
 	EventMessageInstanceDeregisterFailed = "instance %v has failed to deregistered from classic-elb %v: %v"
 )
