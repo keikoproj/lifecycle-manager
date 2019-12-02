@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
++ Better naming for event reasons (#32)
++ Add prometheus metrics server (#29)
+
 ## 0.3.1
 
 + Documentation fixes (#19, #20)
