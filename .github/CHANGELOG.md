@@ -3,7 +3,7 @@
 ## 0.3.2
 
 + Better naming for event reasons (#32)
-+ Add prometheus metrics server (#29)
++ Expose prometheus metrics (#29)
 
 ## 0.3.1
 
