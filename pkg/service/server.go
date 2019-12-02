@@ -37,7 +37,8 @@ var (
 // Start starts the lifecycle-manager service
 func (mgr *Manager) Start() {
 	var (
-		ctx = &mgr.context
+		ctx     = &mgr.context
+		metrics = mgr.metrics
 	)
 
 	log.Infof("starting lifecycle-manager service v%v", version.Version)
@@ -47,6 +48,10 @@ func (mgr *Manager) Start() {
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
+
+	// start metrics server
+	log.Infof("starting metrics server on %v%v", MetricsEndpoint, MetricsPort)
+	go metrics.Start()
 
 	// create a poller goroutine that reads from sqs and posts to channel
 	log.Info("spawning sqs poller")
@@ -77,20 +82,33 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 }
 
 func (mgr *Manager) AddEvent(event *LifecycleEvent) {
-	mgr.workQueueSync.Lock()
+	var (
+		metrics   = mgr.metrics
+		queueSync = mgr.workQueueSync
+	)
+	queueSync.Lock()
 	event.SetEventTimeStarted(time.Now())
+	metrics.IncGauge(TerminatingInstancesCountMetric)
 	mgr.workQueue = append(mgr.workQueue, event)
-	mgr.workQueueSync.Unlock()
+	queueSync.Unlock()
 }
 
 func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 	var (
 		queue      = mgr.authenticator.SQSClient
+		metrics    = mgr.metrics
 		kubeClient = mgr.authenticator.KubernetesClient
 		asgClient  = mgr.authenticator.ScalingGroupClient
 		url        = event.queueURL
 		t          = time.Since(event.startTime).Seconds()
 	)
+
+	if mgr.avarageLatency == 0 {
+		mgr.avarageLatency = t
+	} else {
+		mgr.avarageLatency = (mgr.avarageLatency + t) / 2
+	}
+
 	newQueue := make([]*LifecycleEvent, 0)
 	for _, e := range mgr.workQueue {
 		if reflect.DeepEqual(event, e) {
@@ -114,6 +132,7 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 				"details":       msg,
 			}
 			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msgFields, event.referencedNode.Name))
+			metrics.AddCounter(SuccessfulEventsTotalMetric, 1)
 		} else {
 			newQueue = append(newQueue, e)
 		}
@@ -121,6 +140,8 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 	mgr.workQueueSync.Lock()
 	mgr.workQueue = newQueue
 	mgr.completedEvents++
+	metrics.DecGauge(TerminatingInstancesCountMetric)
+	metrics.SetGauge(AverageDurationSecondsMetric, mgr.avarageLatency)
 	log.Infof("event %v for instance %v completed after %vs", event.RequestID, event.EC2InstanceID, t)
 	mgr.workQueueSync.Unlock()
 }
@@ -130,12 +151,14 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 		auth               = mgr.authenticator
 		kubeClient         = auth.KubernetesClient
 		queue              = auth.SQSClient
+		metrics            = mgr.metrics
 		scalingGroupClient = auth.ScalingGroupClient
 		url                = event.queueURL
 		t                  = time.Since(event.startTime).Seconds()
 	)
 	log.Errorf("event %v has failed processing after %vs: %v", event.RequestID, t, err)
 	mgr.failedEvents++
+	metrics.AddCounter(FailedEventsTotalMetric, 1)
 	event.SetEventCompleted(true)
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
 	msgFields := map[string]string{
@@ -168,13 +191,15 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 
 func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
 	var (
-		auth  = mgr.authenticator
-		queue = auth.SQSClient
-		url   = event.queueURL
+		auth    = mgr.authenticator
+		queue   = auth.SQSClient
+		metrics = mgr.metrics
+		url     = event.queueURL
 	)
 
 	log.Debugf("event %v has been rejected for processing: %v", event.RequestID, err)
 	mgr.rejectedEvents++
+	metrics.AddCounter(RejectedEventsTotalMetric, 1)
 
 	if reflect.DeepEqual(event, LifecycleEvent{}) {
 		log.Errorf("event failed: invalid message: %v", err)
@@ -190,6 +215,7 @@ func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
 func (mgr *Manager) newPoller() {
 	var (
 		ctx      = &mgr.context
+		metrics  = mgr.metrics
 		auth     = mgr.authenticator
 		stream   = mgr.eventStream
 		queue    = auth.SQSClient
@@ -199,7 +225,10 @@ func (mgr *Manager) newPoller() {
 
 	for {
 		log.Debugln("polling for messages from queue")
-		log.Debugf("active goroutines: %v", runtime.NumGoroutine())
+		goroutines := runtime.NumGoroutine()
+		metrics.SetGauge(ActiveGoroutinesMetric, float64(goroutines))
+		log.Debugf("active goroutines: %v", goroutines)
+
 		output, err := queue.ReceiveMessage(&sqs.ReceiveMessageInput{
 			QueueUrl: aws.String(url),
 			AttributeNames: aws.StringSlice([]string{
@@ -288,6 +317,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 		ctx           = &mgr.context
 		kubeClient    = mgr.authenticator.KubernetesClient
 		kubectlPath   = mgr.context.KubectlLocalPath
+		metrics       = mgr.metrics
 		drainTimeout  = ctx.DrainTimeoutSeconds
 		retryInterval = ctx.DrainRetryIntervalSeconds
 		successMsg    = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
@@ -307,6 +337,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	}
 	log.Infof("completed drain for node %v", event.referencedNode.Name)
 	event.SetDrainCompleted(true)
+	metrics.AddCounter(SuccessfulNodeDrainTotalMetric, 1)
 
 	msgFields := map[string]string{
 		"eventID":       event.RequestID,
@@ -325,6 +356,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		elbClient           = mgr.authenticator.ELBClient
 		instanceID          = event.EC2InstanceID
 		ctx                 = &mgr.context
+		metrics             = mgr.metrics
 		node                = event.referencedNode
 		wg                  sync.WaitGroup
 		errChannel          = make(chan error, 1)
@@ -529,6 +561,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	}
 
 	log.Debugf("successfully executed all drainLoadbalancerTarget goroutines")
+	metrics.AddCounter(SuccessfulLBDeregisterTotalMetric, 1)
 	event.SetDeregisterCompleted(true)
 	return nil
 }
@@ -536,22 +569,31 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	var (
 		asgClient = mgr.authenticator.ScalingGroupClient
+		metrics   = mgr.metrics
 	)
 
 	// send heartbeat at intervals
 	go sendHeartbeat(asgClient, event)
 
 	// node drain
+	metrics.IncGauge(DrainingInstancesCountMetric)
 	err := mgr.drainNodeTarget(event)
 	if err != nil {
+		metrics.DecGauge(DrainingInstancesCountMetric)
+		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		return err
 	}
+	metrics.DecGauge(DrainingInstancesCountMetric)
 
 	// alb-drain action
+	metrics.IncGauge(DeregisteringInstancesCountMetric)
 	err = mgr.drainLoadbalancerTarget(event)
 	if err != nil {
+		metrics.DecGauge(DeregisteringInstancesCountMetric)
+		metrics.AddCounter(FailedLBDeregisterTotalMetric, 1)
 		return err
 	}
+	metrics.DecGauge(DeregisteringInstancesCountMetric)
 
 	return nil
 }
@@ -559,6 +601,6 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 func waitJitter(rangeSeconds int) {
 	rand.Seed(time.Now().UnixNano())
 	n := rand.Intn(rangeSeconds)
-	log.Infof("adding jitter of %d seconds to waiter", n)
+	log.Debugf("adding jitter of %d seconds to waiter", n)
 	time.Sleep(time.Duration(n) * time.Second)
 }
