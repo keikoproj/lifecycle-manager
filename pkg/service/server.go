@@ -88,7 +88,7 @@ func (mgr *Manager) AddEvent(event *LifecycleEvent) {
 	)
 	queueSync.Lock()
 	event.SetEventTimeStarted(time.Now())
-	metrics.IncGauge("terminating_instances_count")
+	metrics.IncGauge(TerminatingInstancesCountMetric)
 	mgr.workQueue = append(mgr.workQueue, event)
 	queueSync.Unlock()
 }
@@ -132,7 +132,7 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 				"details":       msg,
 			}
 			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msgFields, event.referencedNode.Name))
-			metrics.AddCounter("successful_events_total", 1)
+			metrics.AddCounter(SuccessfulEventsTotalMetric, 1)
 		} else {
 			newQueue = append(newQueue, e)
 		}
@@ -140,8 +140,8 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 	mgr.workQueueSync.Lock()
 	mgr.workQueue = newQueue
 	mgr.completedEvents++
-	metrics.DecGauge("terminating_instances_count")
-	metrics.SetGauge("average_duration_seconds", mgr.avarageLatency)
+	metrics.DecGauge(TerminatingInstancesCountMetric)
+	metrics.SetGauge(AverageDurationSecondsMetric, mgr.avarageLatency)
 	log.Infof("event %v for instance %v completed after %vs", event.RequestID, event.EC2InstanceID, t)
 	mgr.workQueueSync.Unlock()
 }
@@ -158,7 +158,7 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	)
 	log.Errorf("event %v has failed processing after %vs: %v", event.RequestID, t, err)
 	mgr.failedEvents++
-	metrics.AddCounter("failed_events_total", 1)
+	metrics.AddCounter(FailedEventsTotalMetric, 1)
 	event.SetEventCompleted(true)
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
 	msgFields := map[string]string{
@@ -199,7 +199,7 @@ func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
 
 	log.Debugf("event %v has been rejected for processing: %v", event.RequestID, err)
 	mgr.rejectedEvents++
-	metrics.AddCounter("rejected_events_total", 1)
+	metrics.AddCounter(RejectedEventsTotalMetric, 1)
 
 	if reflect.DeepEqual(event, LifecycleEvent{}) {
 		log.Errorf("event failed: invalid message: %v", err)
@@ -226,7 +226,7 @@ func (mgr *Manager) newPoller() {
 	for {
 		log.Debugln("polling for messages from queue")
 		goroutines := runtime.NumGoroutine()
-		metrics.SetGauge("active_goroutines", float64(goroutines))
+		metrics.SetGauge(ActiveGoroutinesMetric, float64(goroutines))
 		log.Debugf("active goroutines: %v", goroutines)
 
 		output, err := queue.ReceiveMessage(&sqs.ReceiveMessageInput{
@@ -337,7 +337,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	}
 	log.Infof("completed drain for node %v", event.referencedNode.Name)
 	event.SetDrainCompleted(true)
-	metrics.AddCounter("successful_node_drain_total", 1)
+	metrics.AddCounter(SuccessfulNodeDrainTotalMetric, 1)
 
 	msgFields := map[string]string{
 		"eventID":       event.RequestID,
@@ -561,7 +561,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	}
 
 	log.Debugf("successfully executed all drainLoadbalancerTarget goroutines")
-	metrics.AddCounter("successful_lb_deregister_total", 1)
+	metrics.AddCounter(SuccessfulLBDeregisterTotalMetric, 1)
 	event.SetDeregisterCompleted(true)
 	return nil
 }
@@ -576,24 +576,24 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	go sendHeartbeat(asgClient, event)
 
 	// node drain
-	metrics.IncGauge("draining_instances_count")
+	metrics.IncGauge(DrainingInstancesCountMetric)
 	err := mgr.drainNodeTarget(event)
 	if err != nil {
-		metrics.DecGauge("draining_instances_count")
-		metrics.AddCounter("failed_node_drain_total", 1)
+		metrics.DecGauge(DrainingInstancesCountMetric)
+		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		return err
 	}
-	metrics.DecGauge("draining_instances_count")
+	metrics.DecGauge(DrainingInstancesCountMetric)
 
 	// alb-drain action
-	metrics.IncGauge("deregistering_instances_count")
+	metrics.IncGauge(DeregisteringInstancesCountMetric)
 	err = mgr.drainLoadbalancerTarget(event)
 	if err != nil {
-		metrics.DecGauge("deregistering_instances_count")
-		metrics.AddCounter("failed_lb_deregister_total", 1)
+		metrics.DecGauge(DeregisteringInstancesCountMetric)
+		metrics.AddCounter(FailedLBDeregisterTotalMetric, 1)
 		return err
 	}
-	metrics.DecGauge("deregistering_instances_count")
+	metrics.DecGauge(DeregisteringInstancesCountMetric)
 
 	return nil
 }

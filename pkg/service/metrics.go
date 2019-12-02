@@ -10,11 +10,26 @@ import (
 
 var (
 	// MetricsNamespace is the namespace of prometheus metrics
-	MetricsNamespace = "process"
+	MetricsNamespace = "lifecycle_manager"
 	// MetricsPort is the port used to serve metrics
 	MetricsPort = ":8080"
 	// MetricsEndpoint is the endpoint to expose for metrics
 	MetricsEndpoint = "/metrics"
+)
+
+const (
+	ActiveGoroutinesMetric            = "active_goroutines"
+	TerminatingInstancesCountMetric   = "terminating_instances_count"
+	DrainingInstancesCountMetric      = "draining_instances_count"
+	DeregisteringInstancesCountMetric = "deregistering_instances_count"
+	AverageDurationSecondsMetric      = "average_duration_seconds"
+	SuccessfulEventsTotalMetric       = "successful_events_total"
+	SuccessfulLBDeregisterTotalMetric = "successful_lb_deregister_total"
+	SuccessfulNodeDrainTotalMetric    = "successful_node_drain_total"
+	FailedEventsTotalMetric           = "failed_events_total"
+	FailedLBDeregisterTotalMetric     = "failed_lb_deregister_total"
+	FailedNodeDrainTotalMetric        = "failed_node_drain_total"
+	RejectedEventsTotalMetric         = "rejected_events_total"
 )
 
 func (m *MetricsServer) Start() {
@@ -22,31 +37,31 @@ func (m *MetricsServer) Start() {
 	m.Counters = make(map[string]prometheus.Counter, 0)
 
 	gaugeIndex := map[string]string{
-		"active_goroutines":             "indicates the current number of active goroutines.",
-		"terminating_instances_count":   "indicates the current number of terminating instances.",
-		"draining_instances_count":      "indicates the current number of draining instances.",
-		"deregistering_instances_count": "indicates the current number of deregistering instances.",
-		"average_duration_seconds":      "indicates the average duration of processing a hook in seconds.",
+		ActiveGoroutinesMetric:            "indicates the current number of active goroutines.",
+		TerminatingInstancesCountMetric:   "indicates the current number of terminating instances.",
+		DrainingInstancesCountMetric:      "indicates the current number of draining instances.",
+		DeregisteringInstancesCountMetric: "indicates the current number of deregistering instances.",
+		AverageDurationSecondsMetric:      "indicates the average duration of processing a hook in seconds.",
 	}
 
 	counterIndex := map[string]string{
-		"successful_events_total":        "indicates the sum of all successful events.",
-		"successful_lb_deregister_total": "indicates the sum of all events that succeeded to deregister loadbalancer",
-		"successful_node_drain_total":    "indicates the sum of all events that succeeded to drain the node.",
-		"failed_events_total":            "indicates the sum of all failed events.",
-		"failed_lb_deregister_total":     "indicates the sum of all events that failed to deregister loadbalancer.",
-		"failed_node_drain_total":        "indicates the sum of all events that failed to drain the node.",
-		"rejected_events_total":          "indicates the sum of all rejected events.",
+		SuccessfulEventsTotalMetric:       "indicates the sum of all successful events.",
+		SuccessfulLBDeregisterTotalMetric: "indicates the sum of all events that succeeded to deregister loadbalancer",
+		SuccessfulNodeDrainTotalMetric:    "indicates the sum of all events that succeeded to drain the node.",
+		FailedEventsTotalMetric:           "indicates the sum of all failed events.",
+		FailedLBDeregisterTotalMetric:     "indicates the sum of all events that failed to deregister loadbalancer.",
+		FailedNodeDrainTotalMetric:        "indicates the sum of all events that failed to drain the node.",
+		RejectedEventsTotalMetric:         "indicates the sum of all rejected events.",
 	}
 
 	for gaugeName, desc := range gaugeIndex {
 		gauge := prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Namespace: MetricsNamespace,
-				Name:      gaugeName,
+				Name:      string(gaugeName),
 				Help:      desc,
 			})
-		m.Gauges[gaugeName] = gauge
+		m.Gauges[string(gaugeName)] = gauge
 	}
 
 	for counterName, desc := range counterIndex {
