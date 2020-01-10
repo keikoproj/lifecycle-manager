@@ -120,7 +120,7 @@ func newKubernetesEvent(reason EventReason, msgFields map[string]string, refNode
 	h, _ := hashids.NewWithData(hd)
 	uuid, _ := h.Encode([]int{45, 434, 1313, 99})
 
-	eventName := fmt.Sprintf("%v.%v", time.Now().Unix(), uuid)
+	eventName := fmt.Sprintf("%v-%v.%v", "lifecycle-manager", time.Now().Unix(), uuid)
 	event := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      eventName,

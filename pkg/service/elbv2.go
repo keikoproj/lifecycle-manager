@@ -91,24 +91,3 @@ func deregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, por
 	}
 	return nil
 }
-
-func getTargetGroupArns(targets []*elbv2.TargetGroup) []string {
-	arns := []string{}
-	for _, tg := range targets {
-		arns = append(arns, aws.StringValue(tg.TargetGroupArn))
-	}
-	return arns
-}
-
-func isTargetGroupInScope(tags []*elbv2.TagDescription, arn, tagKey, tagValue string) bool {
-	for _, tag := range tags {
-		if aws.StringValue(tag.ResourceArn) == arn {
-			for _, resourceTag := range tag.Tags {
-				if aws.StringValue(resourceTag.Key) == tagKey && aws.StringValue(resourceTag.Value) == tagValue {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}

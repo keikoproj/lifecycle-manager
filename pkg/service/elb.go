@@ -88,24 +88,3 @@ func deregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) e
 	}
 	return nil
 }
-
-func getLoadBalancerNames(elbs []*elb.LoadBalancerDescription) []string {
-	names := []string{}
-	for _, elb := range elbs {
-		names = append(names, aws.StringValue(elb.LoadBalancerName))
-	}
-	return names
-}
-
-func isLoadBalancerInScope(tags []*elb.TagDescription, elbName, tagKey, tagValue string) bool {
-	for _, tag := range tags {
-		if aws.StringValue(tag.LoadBalancerName) == elbName {
-			for _, resourceTag := range tag.Tags {
-				if aws.StringValue(resourceTag.Key) == tagKey && aws.StringValue(resourceTag.Value) == tagValue {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}

@@ -359,7 +359,6 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		metrics             = mgr.metrics
 		node                = event.referencedNode
 		wg                  sync.WaitGroup
-		errChannel          = make(chan error, 1)
 		finished            = make(chan bool, 1)
 		activeTargetGroups  = make(map[string]int64)
 		activeLoadBalancers = make([]string, 0)
@@ -443,16 +442,20 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	// create goroutine per target group with target match
 	workQueueLength := len(activeTargetGroups) + len(activeLoadBalancers)
 	wg.Add(workQueueLength)
+	errChannel := make(chan error, workQueueLength*2)
 
 	log.Printf("found %v member target groups for instance %v", len(activeTargetGroups), instanceID)
 
 	// handle classic load balancers deregistration
+	deregisteredLoadBalancers := []string{}
 	for _, elbName := range activeLoadBalancers {
 		// sleep for random jitter per iteration
 		waitJitter(IterationJitterRangeSeconds)
 		err = deregisterInstance(elbClient, elbName, instanceID)
 		if err != nil {
+			log.Info("deregister failed")
 			errChannel <- err
+			log.Info("after")
 			msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instanceID, elbName, err)
 			msgFields := map[string]string{
 				"elbName":       elbName,
@@ -463,15 +466,19 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, event.referencedNode.Name))
 			continue
 		}
+		deregisteredLoadBalancers = append(deregisteredLoadBalancers, elbName)
 	}
 
 	// handle v2 load balancers deregistration
+	deregisteredTargetGroups := map[string]int64{}
 	for arn, port := range activeTargetGroups {
 		// sleep for random jitter per iteration
 		waitJitter(IterationJitterRangeSeconds)
 		err = deregisterTarget(elbv2Client, arn, instanceID, port)
 		if err != nil {
+			log.Info("deregister failed")
 			errChannel <- err
+			log.Info("after")
 			msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instanceID, port, arn, err)
 			msgFields := map[string]string{
 				"port":          fmt.Sprintf("%d", port),
@@ -483,10 +490,11 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msgFields, event.referencedNode.Name))
 			continue
 		}
+		deregisteredTargetGroups[arn] = port
 	}
 
 	// spawn waiters for classic elb
-	for _, elbName := range activeLoadBalancers {
+	for _, elbName := range deregisteredLoadBalancers {
 		// sleep for random jitter per waiter
 		waitJitter(IterationJitterRangeSeconds)
 		go func(elbName, instance string) {
@@ -520,7 +528,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	}
 
 	// spawn waiters for target groups
-	for arn, port := range activeTargetGroups {
+	for arn, port := range deregisteredTargetGroups {
 		// sleep for random jitter per waiter
 		waitJitter(IterationJitterRangeSeconds)
 		go func(activeARN, instance string, activePort int64) {

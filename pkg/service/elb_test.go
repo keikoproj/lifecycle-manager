@@ -21,10 +21,6 @@ type stubELB struct {
 	timesCalledDescribeLoadBalancers  int
 }
 
-func (e *stubELB) WaitUntilInstanceDeregisteredWithContext(ctx context.Context, input *elb.DescribeInstanceHealthInput, req ...request.WaiterOption) error {
-	return nil
-}
-
 func (e *stubELB) DescribeInstanceHealth(input *elb.DescribeInstanceHealthInput) (*elb.DescribeInstanceHealthOutput, error) {
 	e.timesCalledDescribeInstanceHealth++
 	return &elb.DescribeInstanceHealthOutput{InstanceStates: e.instanceStates}, nil

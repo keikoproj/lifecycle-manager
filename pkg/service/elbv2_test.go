@@ -61,14 +61,6 @@ type stubErrorELBv2 struct {
 	failHint                        string
 }
 
-func (e *stubErrorELBv2) WaitUntilTargetDeregisteredWithContext(ctx context.Context, input *elbv2.DescribeTargetHealthInput, req ...request.WaiterOption) error {
-	var err error
-	if e.failHint == "WaitUntilTargetDeregisteredWithContext" {
-		err = fmt.Errorf("inject error, DeregisterTargets")
-	}
-	return err
-}
-
 func (e *stubErrorELBv2) DescribeTargetHealth(input *elbv2.DescribeTargetHealthInput) (*elbv2.DescribeTargetHealthOutput, error) {
 	e.timesCalledDescribeTargetHealth++
 	return &elbv2.DescribeTargetHealthOutput{TargetHealthDescriptions: e.targetHealthDescriptions}, nil
