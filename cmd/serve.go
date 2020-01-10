@@ -72,7 +72,7 @@ var serveCmd = &cobra.Command{
 
 		// prepare runtime context
 		context := service.ManagerContext{
-			CacheStore:                cacheCfg,
+			CacheConfig:               cacheCfg,
 			KubectlLocalPath:          kubectlLocalPath,
 			QueueName:                 queueName,
 			DrainTimeoutSeconds:       int64(drainTimeoutSeconds),
