@@ -11,7 +11,7 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func waitForDeregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
+func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	var (
 		DelayIntervalSeconds int64 = 30
 		MaxAttempts                = 500
@@ -23,6 +23,11 @@ func waitForDeregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID stri
 	}
 
 	for i := 0; i < MaxAttempts; i++ {
+
+		if event.eventCompleted {
+			return errors.New("event completed before waiter completed")
+		}
+
 		found = false
 		targets, err := elbClient.DescribeTargetHealth(input)
 		if err != nil {

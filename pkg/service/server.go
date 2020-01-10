@@ -493,7 +493,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			defer wg.Done()
 			// wait for deregister/drain
 			log.Infof("starting elb-drain waiter for %v in classic-elb %v", instance, elbName)
-			err = waitForDeregisterInstance(elbClient, elbName, instance)
+			err = waitForDeregisterInstance(event, elbClient, elbName, instance)
 			if err != nil {
 				errChannel <- err
 				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instance, elbName, err)
@@ -527,7 +527,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 			defer wg.Done()
 			// wait for deregister/drain
 			log.Infof("starting alb-drain waiter for %v in target-group %v", instance, activeARN)
-			err = waitForDeregisterTarget(elbv2Client, activeARN, instance, activePort)
+			err = waitForDeregisterTarget(event, elbv2Client, activeARN, instance, activePort)
 			if err != nil {
 				errChannel <- err
 				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instance, activePort, activeARN, err)
