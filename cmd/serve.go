@@ -158,7 +158,7 @@ func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTags", 300*time.Second)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-		log.Debugf("cache hit => %v, service => %s.%s: ",
+		log.Debugf("cache hit => %v, service => %s.%s",
 			cache.IsCacheHit(ctx),
 			r.ClientInfo.ServiceName,
 			r.Operation.Name,
@@ -181,7 +181,7 @@ func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTags", 300*time.Second)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-		log.Debugf("cached => %v, service => %s.%s: ",
+		log.Debugf("cached => %v, service => %s.%s",
 			cache.IsCacheHit(ctx),
 			r.ClientInfo.ServiceName,
 			r.Operation.Name,

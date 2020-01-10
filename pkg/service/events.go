@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"math/rand"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
-	"github.com/speps/go-hashids"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,13 +114,7 @@ func newKubernetesEvent(reason EventReason, msgFields map[string]string, refNode
 		msgPayload = fmt.Sprintf("%v", msgFields)
 	}
 
-	hd := hashids.NewData()
-	hd.Salt = "lifecycle-manager"
-	hd.MinLength = 10
-	h, _ := hashids.NewWithData(hd)
-	uuid, _ := h.Encode([]int{45, 434, 1313, 99})
-
-	eventName := fmt.Sprintf("%v-%v.%v", "lifecycle-manager", time.Now().Unix(), uuid)
+	eventName := fmt.Sprintf("%v-%v.%v", "lifecycle-manager", time.Now().Unix(), rand.Int())
 	event := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      eventName,

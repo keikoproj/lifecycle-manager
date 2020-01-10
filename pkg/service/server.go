@@ -448,8 +448,9 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 
 	// handle classic load balancers deregistration
 	deregisteredLoadBalancers := []string{}
-	for _, elbName := range activeLoadBalancers {
+	for i, elbName := range activeLoadBalancers {
 		// sleep for random jitter per iteration
+		log.Infof("deregistering %v from %v (%v/%v)", instanceID, elbName, i+1, len(activeTargetGroups))
 		waitJitter(IterationJitterRangeSeconds)
 		err = deregisterInstance(elbClient, elbName, instanceID)
 		if err != nil {
@@ -471,9 +472,12 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 
 	// handle v2 load balancers deregistration
 	deregisteredTargetGroups := map[string]int64{}
+	currentDeregistering := 0
 	for arn, port := range activeTargetGroups {
+		currentDeregistering++
 		// sleep for random jitter per iteration
 		waitJitter(IterationJitterRangeSeconds)
+		log.Infof("deregistering %v from %v (%v/%v)", instanceID, arn, currentDeregistering, len(activeTargetGroups))
 		err = deregisterTarget(elbv2Client, arn, instanceID, port)
 		if err != nil {
 			log.Info("deregister failed")

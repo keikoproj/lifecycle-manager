@@ -84,7 +84,6 @@ func deregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, por
 		TargetGroupArn: aws.String(arn),
 	}
 
-	log.Infof("deregistering %v from %v", instanceID, arn)
 	_, err := elbClient.DeregisterTargets(input)
 	if err != nil {
 		return err

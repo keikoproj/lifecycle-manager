@@ -81,7 +81,6 @@ func deregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) e
 		},
 	}
 
-	log.Infof("deregistering %v from %v", instanceID, elbName)
 	_, err := elbClient.DeregisterInstancesFromLoadBalancer(input)
 	if err != nil {
 		return err
