@@ -1,10 +1,10 @@
 package service
 
 import (
-	"context"
+	"errors"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 
@@ -13,26 +13,40 @@ import (
 
 func waitForDeregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) error {
 	var (
-		MaxAttempts = 500
+		DelayIntervalSeconds int64 = 30
+		MaxAttempts                = 500
+		found                bool
 	)
 
-	waiterOpts := []request.WaiterOption{
-		request.WithWaiterMaxAttempts(MaxAttempts),
-	}
 	input := &elb.DescribeInstanceHealthInput{
 		LoadBalancerName: aws.String(elbName),
-		Instances: []*elb.Instance{
-			{
-				InstanceId: aws.String(instanceID),
-			},
-		},
 	}
 
-	err := elbClient.WaitUntilInstanceDeregisteredWithContext(context.Background(), input, waiterOpts...)
-	if err != nil {
-		return err
+	for i := 0; i < MaxAttempts; i++ {
+		found = false
+		instances, err := elbClient.DescribeInstanceHealth(input)
+		if err != nil {
+			return err
+		}
+		for _, state := range instances.InstanceStates {
+			if aws.StringValue(state.InstanceId) == instanceID {
+				found = true
+				if aws.StringValue(state.State) == "OutOfService" {
+					return nil
+				}
+				break
+			}
+		}
+		if !found {
+			log.Infof("instance %v not found in elb %v", instanceID, elbName)
+			return nil
+		}
+		log.Infof("instance %v not yet deregistered from load balancer %v, waiting %vs", instanceID, elbName, DelayIntervalSeconds)
+		time.Sleep(time.Second * time.Duration(DelayIntervalSeconds))
 	}
-	return nil
+
+	err := errors.New("wait for target deregister timed out")
+	return err
 }
 
 func findInstanceInClassicBalancer(elbClient elbiface.ELBAPI, elbName, instanceID string) (bool, error) {
@@ -68,4 +82,25 @@ func deregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) e
 		return err
 	}
 	return nil
+}
+
+func getLoadBalancerNames(elbs []*elb.LoadBalancerDescription) []string {
+	names := []string{}
+	for _, elb := range elbs {
+		names = append(names, aws.StringValue(elb.LoadBalancerName))
+	}
+	return names
+}
+
+func isLoadBalancerInScope(tags []*elb.TagDescription, elbName, tagKey, tagValue string) bool {
+	for _, tag := range tags {
+		if aws.StringValue(tag.LoadBalancerName) == elbName {
+			for _, resourceTag := range tag.Tags {
+				if aws.StringValue(resourceTag.Key) == tagKey && aws.StringValue(resourceTag.Value) == tagValue {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

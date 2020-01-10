@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client"
@@ -58,18 +59,20 @@ var serveCmd = &cobra.Command{
 		// argument validation
 		validate()
 		log.SetLevel(logLevel)
+		cacheCfg := cache.NewConfig(0 * time.Second)
 
 		// prepare auth clients
 		auth := service.Authenticator{
 			ScalingGroupClient: newASGClient(region),
 			SQSClient:          newSQSClient(region),
-			ELBv2Client:        newELBv2Client(region),
-			ELBClient:          newELBClient(region),
+			ELBv2Client:        newELBv2Client(region, cacheCfg),
+			ELBClient:          newELBClient(region, cacheCfg),
 			KubernetesClient:   newKubernetesClient(localMode),
 		}
 
 		// prepare runtime context
 		context := service.ManagerContext{
+			CacheStore:                cacheCfg,
 			KubectlLocalPath:          kubectlLocalPath,
 			QueueName:                 queueName,
 			DrainTimeoutSeconds:       int64(drainTimeoutSeconds),
@@ -141,7 +144,7 @@ func newKubernetesClient(localMode string) *kubernetes.Clientset {
 	return kubernetes.NewForConfigOrDie(config)
 }
 
-func newELBv2Client(region string) elbv2iface.ELBV2API {
+func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
 	config := aws.NewConfig().WithRegion(region)
 	config = config.WithCredentialsChainVerboseErrors(true)
 	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
@@ -149,11 +152,22 @@ func newELBv2Client(region string) elbv2iface.ELBV2API {
 	if err != nil {
 		log.Fatalf("failed to create elbv2 client, %v", err)
 	}
-
+	cache.AddCaching(sess, cacheCfg)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetHealth", 180*time.Second)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetGroups", 300*time.Second)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTags", 300*time.Second)
+	sess.Handlers.Complete.PushFront(func(r *request.Request) {
+		ctx := r.HTTPRequest.Context()
+		log.Debugf("cache hit => %v, service => %s.%s: ",
+			cache.IsCacheHit(ctx),
+			r.ClientInfo.ServiceName,
+			r.Operation.Name,
+		)
+	})
 	return elbv2.New(sess)
 }
 
-func newELBClient(region string) elbiface.ELBAPI {
+func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
 	config := aws.NewConfig().WithRegion(region)
 	config = config.WithCredentialsChainVerboseErrors(true)
 	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
@@ -161,7 +175,18 @@ func newELBClient(region string) elbiface.ELBAPI {
 	if err != nil {
 		log.Fatalf("failed to create elb client, %v", err)
 	}
-
+	cache.AddCaching(sess, cacheCfg)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeInstanceHealth", 180*time.Second)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", 300*time.Second)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTags", 300*time.Second)
+	sess.Handlers.Complete.PushFront(func(r *request.Request) {
+		ctx := r.HTTPRequest.Context()
+		log.Debugf("cached => %v, service => %s.%s: ",
+			cache.IsCacheHit(ctx),
+			r.ClientInfo.ServiceName,
+			r.Operation.Name,
+		)
+	})
 	return elb.New(sess)
 }
 

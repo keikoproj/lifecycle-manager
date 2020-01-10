@@ -18,7 +18,6 @@ import (
 
 func init() {
 	ThreadJitterRangeSeconds = 1
-	DeregisterJitterRangeSeconds = 1
 }
 
 func Test_RejectHandler(t *testing.T) {

@@ -4,16 +4,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/aws/aws-sdk-go/service/elb/elbiface"
-
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
-
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
+	"github.com/aws/aws-sdk-go/service/elb/elbiface"
+	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -80,6 +78,7 @@ func New(auth Authenticator, ctx ManagerContext) *Manager {
 }
 
 type ManagerContext struct {
+	CacheConfig               *cache.Config
 	KubectlLocalPath          string
 	QueueName                 string
 	Region                    string
