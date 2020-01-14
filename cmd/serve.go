@@ -26,6 +26,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const (
+	DescribeTargetHealthTTL   = 180 * time.Second
+	DescribeInstanceHealthTTL = 180 * time.Second
+	DescribeTargetGroupsTTL   = 300 * time.Second
+	DescribeLoadBalancersTTL  = 300 * time.Second
+)
+
 var (
 	localMode        string
 	region           string
@@ -153,8 +160,8 @@ func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
 		log.Fatalf("failed to create elbv2 client, %v", err)
 	}
 	cache.AddCaching(sess, cacheCfg)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetHealth", 180*time.Second)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetGroups", 300*time.Second)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetHealth", DescribeTargetHealthTTL)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetGroups", DescribeTargetGroupsTTL)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
 		log.Debugf("cache hit => %v, service => %s.%s",
@@ -175,8 +182,8 @@ func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
 		log.Fatalf("failed to create elb client, %v", err)
 	}
 	cache.AddCaching(sess, cacheCfg)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeInstanceHealth", 180*time.Second)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", 300*time.Second)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeInstanceHealth", DescribeInstanceHealthTTL)
+	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", DescribeLoadBalancersTTL)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
 		log.Debugf("cached => %v, service => %s.%s",
