@@ -31,7 +31,9 @@ var (
 	// ThreadJitterRangeSeconds configures the jitter range in seconds 0 to N per handler goroutine
 	ThreadJitterRangeSeconds = 30.0
 	// IterationJitterRangeSeconds configures the jitter range in seconds 0 to N per call iteration goroutine
-	IterationJitterRangeSeconds = 2.0
+	IterationJitterRangeSeconds = 1.0
+	// NodeAgeCacheTTL defines a node age in minutes for which all caches are flushed
+	NodeAgeCacheTTL = 90
 )
 
 // Start starts the lifecycle-manager service
@@ -68,6 +70,8 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 
 	// add event to work queue
 	mgr.AddEvent(event)
+
+	log.Infof("received termination event for instance/%v", event.EC2InstanceID)
 
 	// handle event
 	err := mgr.handleEvent(event)
@@ -371,9 +375,25 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	// sleep for random jitter per goroutine
 	waitJitter(ThreadJitterRangeSeconds)
 
+	// add exclusion label
+	log.Debugf("excluding node %v from load balancers", node.Name)
+	err := labelNode(kubeClient, ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	nodeCreationTime := node.CreationTimestamp.UTC()
+	nodeAge := int(now.Sub(nodeCreationTime).Minutes())
+	if nodeAge <= NodeAgeCacheTTL {
+		log.Infof("Node younger than 90m was terminated, flushing DescribeTargetHealth caches")
+		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeTargetHealth")
+		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeInstanceHealth")
+	}
+
 	// get all target groups
 	targetGroups := []*elbv2.TargetGroup{}
-	err := elbv2Client.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
+	err = elbv2Client.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
 		targetGroups = append(targetGroups, page.TargetGroups...)
 		return page.NextMarker != nil
 	})
@@ -391,27 +411,13 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		return err
 	}
 
-	// add exclusion label
-	log.Debugf("excluding node %v from load balancers", node.Name)
-	err = labelNode(kubeClient, ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now().UTC()
-	nodeCreationTime := node.CreationTimestamp.UTC()
-	nodeAge := int(now.Sub(nodeCreationTime).Minutes())
-	if nodeAge <= 90 {
-		log.Infof("Node younger than 90m was terminated, flushing DescribeTargetHealth caches")
-		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeTargetHealth")
-		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeInstanceHealth")
-	}
-
+	log.Infof("checking targetgroup/elb membership for %v", instanceID)
 	// find instance in target groups
-	for _, tg := range targetGroups {
+	for i, tg := range targetGroups {
 		arn := aws.StringValue(tg.TargetGroupArn)
 		// check each target group for matches
 		waitJitter(IterationJitterRangeSeconds)
+		log.Debugf("checking membership of %v on %v (%v/%v)", instanceID, arn, i, len(targetGroups))
 		found, port, err := findInstanceInTargetGroup(elbv2Client, arn, instanceID)
 		if err != nil {
 			return err
@@ -424,10 +430,11 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	}
 
 	// find instance in classic elbs
-	for _, desc := range elbDescriptions {
+	for i, desc := range elbDescriptions {
 		elbName := aws.StringValue(desc.LoadBalancerName)
 		// check each target group for matches
 		waitJitter(IterationJitterRangeSeconds)
+		log.Debugf("checking membership of %v on %v (%v/%v)", instanceID, elbName, i, len(elbDescriptions))
 		found, err := findInstanceInClassicBalancer(elbClient, elbName, instanceID)
 		if err != nil {
 			return err
@@ -444,14 +451,20 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	wg.Add(workQueueLength)
 	errChannel := make(chan error, workQueueLength*2)
 
-	log.Printf("found %v member target groups for instance %v", len(activeTargetGroups), instanceID)
+	log.Infof("found %v target groups & %v classic-elb for instance %v", len(activeTargetGroups), len(elbDescriptions), instanceID)
 
+	log.Infof("starting deregistration for %v", instanceID)
 	// handle classic load balancers deregistration
 	deregisteredLoadBalancers := []string{}
 	for i, elbName := range activeLoadBalancers {
+
+		if event.eventCompleted {
+			return errors.New("event finished execution during deregistration")
+		}
+
 		// sleep for random jitter per iteration
-		log.Infof("deregistering %v from %v (%v/%v)", instanceID, elbName, i+1, len(activeTargetGroups))
 		waitJitter(IterationJitterRangeSeconds)
+		log.Debugf("deregistering %v from %v (%v/%v)", instanceID, elbName, i+1, len(activeTargetGroups))
 		err = deregisterInstance(elbClient, elbName, instanceID)
 		if err != nil {
 			log.Info("deregister failed")
@@ -474,10 +487,15 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	deregisteredTargetGroups := map[string]int64{}
 	currentDeregistering := 0
 	for arn, port := range activeTargetGroups {
+
+		if event.eventCompleted {
+			return errors.New("event finished execution during deregistration")
+		}
+
 		currentDeregistering++
 		// sleep for random jitter per iteration
 		waitJitter(IterationJitterRangeSeconds)
-		log.Infof("deregistering %v from %v (%v/%v)", instanceID, arn, currentDeregistering, len(activeTargetGroups))
+		log.Debugf("deregistering %v from %v (%v/%v)", instanceID, arn, currentDeregistering, len(activeTargetGroups))
 		err = deregisterTarget(elbv2Client, arn, instanceID, port)
 		if err != nil {
 			log.Info("deregister failed")
@@ -497,6 +515,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		deregisteredTargetGroups[arn] = port
 	}
 
+	log.Infof("starting waiters for %v", instanceID)
 	// spawn waiters for classic elb
 	for _, elbName := range deregisteredLoadBalancers {
 		// sleep for random jitter per waiter
@@ -504,18 +523,10 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		go func(elbName, instance string) {
 			defer wg.Done()
 			// wait for deregister/drain
-			log.Infof("starting elb-drain waiter for %v in classic-elb %v", instance, elbName)
+			log.Debugf("starting elb-drain waiter for %v in classic-elb %v", instance, elbName)
 			err = waitForDeregisterInstance(event, elbClient, elbName, instance)
 			if err != nil {
 				errChannel <- err
-				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instance, elbName, err)
-				msgFields := map[string]string{
-					"elbName":       elbName,
-					"ec2InstanceId": instance,
-					"elbType":       "classic-elb",
-					"details":       msg,
-				}
-				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, event.referencedNode.Name))
 				return
 			}
 
@@ -538,19 +549,10 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		go func(activeARN, instance string, activePort int64) {
 			defer wg.Done()
 			// wait for deregister/drain
-			log.Infof("starting alb-drain waiter for %v in target-group %v", instance, activeARN)
+			log.Debugf("starting alb-drain waiter for %v in target-group %v", instance, activeARN)
 			err = waitForDeregisterTarget(event, elbv2Client, activeARN, instance, activePort)
 			if err != nil {
 				errChannel <- err
-				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instance, activePort, activeARN, err)
-				msgFields := map[string]string{
-					"port":          fmt.Sprintf("%d", activePort),
-					"targetGroup":   activeARN,
-					"ec2InstanceId": instance,
-					"elbType":       "alb",
-					"details":       msg,
-				}
-				publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msgFields, event.referencedNode.Name))
 				return
 			}
 
@@ -626,7 +628,7 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 }
 
 func waitJitter(max float64) {
-	min := 0.1
+	min := 0.3
 	rand.Seed(time.Now().UnixNano())
 	r := min + rand.Float64()*(max-min)
 	log.Debugf("adding jitter of %v seconds to waiter\n", r)
