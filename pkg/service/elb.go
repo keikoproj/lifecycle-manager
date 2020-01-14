@@ -25,7 +25,7 @@ func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI,
 	for i := 0; i < MaxAttempts; i++ {
 
 		if event.eventCompleted {
-			return errors.New("event completed before waiter completed")
+			return errors.New("event finished execution during deregistration wait")
 		}
 
 		found = false
@@ -43,10 +43,10 @@ func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI,
 			}
 		}
 		if !found {
-			log.Infof("instance %v not found in elb %v", instanceID, elbName)
+			log.Debugf("instance %v not found in elb %v", instanceID, elbName)
 			return nil
 		}
-		log.Infof("instance %v not yet deregistered from load balancer %v, waiting %vs", instanceID, elbName, DelayIntervalSeconds)
+		log.Debugf("target %v is still deregistering from %v", instanceID, elbName)
 		time.Sleep(time.Second * time.Duration(DelayIntervalSeconds))
 	}
 

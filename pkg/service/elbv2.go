@@ -25,7 +25,7 @@ func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2AP
 	for i := 0; i < MaxAttempts; i++ {
 
 		if event.eventCompleted {
-			return errors.New("event completed before waiter completed")
+			return errors.New("event finished execution during deregistration wait")
 		}
 
 		found = false
@@ -43,10 +43,10 @@ func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2AP
 			}
 		}
 		if !found {
-			log.Infof("target %v not found in target group %v", instanceID, arn)
+			log.Debugf("target %v not found in target group %v", instanceID, arn)
 			return nil
 		}
-		log.Infof("target %v not yet deregistered from target group %v, waiting %vs", instanceID, arn, DelayIntervalSeconds)
+		log.Debugf("target %v is still deregistering from %v", instanceID, arn)
 		time.Sleep(time.Second * time.Duration(DelayIntervalSeconds))
 	}
 
@@ -61,7 +61,7 @@ func findInstanceInTargetGroup(elbClient elbv2iface.ELBV2API, arn, instanceID st
 
 	target, err := elbClient.DescribeTargetHealth(input)
 	if err != nil {
-		log.Infof("failed finding instance %v in target group %v: %v", instanceID, arn, err.Error())
+		log.Errorf("failed finding instance %v in target group %v: %v", instanceID, arn, err.Error())
 		return false, 0, err
 	}
 	for _, desc := range target.TargetHealthDescriptions {

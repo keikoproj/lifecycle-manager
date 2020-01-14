@@ -38,7 +38,7 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 			return
 		}
 
-		log.Infof("sending heartbeat for %v, %v iterations remaining", instanceID, maxIterations-iterationCount)
+		log.Infof("sending heartbeat for %v (%v/%v)", instanceID, iterationCount, maxIterations)
 		err := extendLifecycleAction(client, *event)
 		if err != nil {
 			log.Errorf("failed to send heartbeat for event with instance %v: %v", instanceID, err)
