@@ -17,8 +17,9 @@ import (
 type Config struct {
 	DefaultTTL  time.Duration
 	specificTTL map[string]time.Duration
-	caches      *sync.Map
-	metrics     *cacheCollector
+	sync.RWMutex
+	caches  *sync.Map
+	metrics *cacheCollector
 }
 
 const cacheNameFormat = "%v.%v"
@@ -47,7 +48,12 @@ func (c *Config) FlushCache(serviceName string) {
 	c.caches.Range(func(k, v interface{}) bool {
 		cacheName := k.(string)
 		if strings.HasPrefix(cacheName, serviceName) {
+			c.Lock()
+			o, _ := c.caches.Load(cacheName)
+			ccacheInstance := o.(*ccache.Cache)
 			c.caches.Store(cacheName, ccache.New(ccache.Configure()))
+			ccacheInstance.Stop()
+			c.Unlock()
 			n := strings.Split(cacheName, ".")
 			c.incFlush(n[0], n[1])
 		}
@@ -80,10 +86,15 @@ func (c *Config) getCache(r *request.Request) *ccache.Cache {
 }
 
 func (c *Config) get(r *request.Request) *ccache.Item {
+	c.RLock()
+	defer c.RUnlock()
 	return c.getCache(r).Get(cacheKey(r))
 }
 
 func (c *Config) set(r *request.Request, object interface{}) {
+	c.RLock()
+	defer c.RUnlock()
+
 	if !isCachable(r.Operation.Name) {
 		return
 	}

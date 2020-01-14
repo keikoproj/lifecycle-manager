@@ -26,6 +26,7 @@ github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/internal/sdkuri
 github.com/aws/aws-sdk-go/internal/shareddefaults
 github.com/aws/aws-sdk-go/private/protocol
+github.com/aws/aws-sdk-go/private/protocol/ec2query
 github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
 github.com/aws/aws-sdk-go/private/protocol/jsonrpc
 github.com/aws/aws-sdk-go/private/protocol/query
@@ -34,6 +35,7 @@ github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/autoscaling
 github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface
+github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/elb
 github.com/aws/aws-sdk-go/service/elb/elbiface
 github.com/aws/aws-sdk-go/service/elbv2
@@ -108,7 +110,8 @@ github.com/sirupsen/logrus
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200107223710-d6f470f74085
+# github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114200444-92e4b18a55fa
+github.com/ticketmaster/aws-sdk-go-cache
 github.com/ticketmaster/aws-sdk-go-cache/cache
 # golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 golang.org/x/crypto/ssh/terminal

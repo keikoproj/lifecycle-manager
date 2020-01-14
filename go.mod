@@ -15,7 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200107223710-d6f470f74085
+	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114200444-92e4b18a55fa
 	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad // indirect
 	golang.org/x/net v0.0.0-20190926025831-c00fd9afed17 // indirect
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
