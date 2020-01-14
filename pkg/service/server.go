@@ -195,10 +195,7 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 
 func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
 	var (
-		auth    = mgr.authenticator
-		queue   = auth.SQSClient
 		metrics = mgr.metrics
-		url     = event.queueURL
 	)
 
 	log.Debugf("event %v has been rejected for processing: %v", event.RequestID, err)
@@ -208,11 +205,6 @@ func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
 	if reflect.DeepEqual(event, LifecycleEvent{}) {
 		log.Errorf("event failed: invalid message: %v", err)
 		return
-	}
-
-	err = deleteMessage(queue, url, event.receiptHandle)
-	if err != nil {
-		log.Errorf("event failed: failed to delete message: %v", err)
 	}
 }
 

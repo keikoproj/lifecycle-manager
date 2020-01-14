@@ -62,11 +62,6 @@ func Test_RejectHandler(t *testing.T) {
 	if mgr.rejectedEvents != expectedFailedEvents {
 		t.Fatalf("expected rejected events: %v, got: %v", expectedFailedEvents, mgr.rejectedEvents)
 	}
-
-	expectedDeleteMessageEvents := 1
-	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
-		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
-	}
 }
 
 func Test_FailHandler(t *testing.T) {
