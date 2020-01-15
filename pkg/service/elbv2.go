@@ -13,16 +13,14 @@ import (
 
 func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	var (
-		DelayIntervalSeconds int64 = 30
-		MaxAttempts                = 500
-		found                bool
+		found bool
 	)
 
 	input := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(arn),
 	}
 
-	for i := 0; i < MaxAttempts; i++ {
+	for i := 0; i < WaiterMaxAttempts; i++ {
 
 		if event.eventCompleted {
 			return errors.New("event finished execution during deregistration wait")
@@ -47,7 +45,7 @@ func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2AP
 			return nil
 		}
 		log.Debugf("target %v is still deregistering from %v", instanceID, arn)
-		time.Sleep(time.Second * time.Duration(DelayIntervalSeconds))
+		time.Sleep(time.Second * time.Duration(WaiterDelayIntervalSeconds))
 	}
 
 	err := errors.New("wait for target deregister timed out")

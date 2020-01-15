@@ -104,6 +104,7 @@ type LifecycleEvent struct {
 	deregisterCompleted  bool
 	eventCompleted       bool
 	startTime            time.Time
+	message              *sqs.Message
 }
 
 func (e *LifecycleEvent) IsValid() bool {
@@ -134,6 +135,9 @@ func (e *LifecycleEvent) IsAlreadyExist(queue []*LifecycleEvent) bool {
 	}
 	return false
 }
+
+// SetMessage is a setter method for the sqs message body
+func (e *LifecycleEvent) SetMessage(message *sqs.Message) { e.message = message }
 
 // SetReceiptHandle is a setter method for the receipt handle of the event
 func (e *LifecycleEvent) SetReceiptHandle(receipt string) { e.receiptHandle = receipt }

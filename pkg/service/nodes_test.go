@@ -107,11 +107,10 @@ func Test_RunCommand(t *testing.T) {
 func Test_LabelNodePositive(t *testing.T) {
 	t.Log("Test_LabelNode: should not return an error if succesful")
 	var (
-		kubeClient = fake.NewSimpleClientset()
-		nodeName   = "some-node"
+		nodeName = "some-node"
 	)
 
-	err := labelNode(kubeClient, stubKubectlPathSuccess, nodeName, ExcludeLabelKey, ExcludeLabelValue)
+	err := labelNode(stubKubectlPathSuccess, nodeName, ExcludeLabelKey, ExcludeLabelValue)
 	if err != nil {
 		t.Fatalf("Test_LabelNode: expected error not to have occured, %v", err)
 	}
@@ -120,11 +119,10 @@ func Test_LabelNodePositive(t *testing.T) {
 func Test_LabelNodeNegative(t *testing.T) {
 	t.Log("Test_LabelNode: should return an error if succesful")
 	var (
-		kubeClient = fake.NewSimpleClientset()
-		nodeName   = "some-node"
+		nodeName = "some-node"
 	)
 
-	err := labelNode(kubeClient, stubKubectlPathFail, nodeName, ExcludeLabelKey, ExcludeLabelValue)
+	err := labelNode(stubKubectlPathFail, nodeName, ExcludeLabelKey, ExcludeLabelValue)
 	if err == nil {
 		t.Fatalf("Test_LabelNode: expected error to have occured, %v", err)
 	}

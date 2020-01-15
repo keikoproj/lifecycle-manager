@@ -13,16 +13,14 @@ import (
 
 func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI, elbName, instanceID string) error {
 	var (
-		DelayIntervalSeconds int64 = 30
-		MaxAttempts                = 500
-		found                bool
+		found bool
 	)
 
 	input := &elb.DescribeInstanceHealthInput{
 		LoadBalancerName: aws.String(elbName),
 	}
 
-	for i := 0; i < MaxAttempts; i++ {
+	for i := 0; i < WaiterMaxAttempts; i++ {
 
 		if event.eventCompleted {
 			return errors.New("event finished execution during deregistration wait")
@@ -47,7 +45,7 @@ func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI,
 			return nil
 		}
 		log.Debugf("target %v is still deregistering from %v", instanceID, elbName)
-		time.Sleep(time.Second * time.Duration(DelayIntervalSeconds))
+		time.Sleep(time.Second * time.Duration(WaiterDelayIntervalSeconds))
 	}
 
 	err := errors.New("wait for target deregister timed out")

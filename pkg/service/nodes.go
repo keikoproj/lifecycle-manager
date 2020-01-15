@@ -100,7 +100,7 @@ func runCommand(call string, arg []string) (string, error) {
 	return string(out), err
 }
 
-func labelNode(kubeClient kubernetes.Interface, kubectlPath, nodeName, labelKey, labelValue string) error {
+func labelNode(kubectlPath, nodeName, labelKey, labelValue string) error {
 	label := fmt.Sprintf("%v=%v", labelKey, labelValue)
 	labelArgs := []string{"label", "--overwrite", "node", nodeName, label}
 	_, err := runCommand(kubectlPath, labelArgs)
@@ -109,4 +109,34 @@ func labelNode(kubeClient kubernetes.Interface, kubectlPath, nodeName, labelKey,
 		return err
 	}
 	return nil
+}
+
+func annotateNode(kubectlPath, nodeName, key, value string) error {
+	label := fmt.Sprintf("%v=%v", key, value)
+	labelArgs := []string{"annotate", "--overwrite", "node", nodeName, label}
+	_, err := runCommand(kubectlPath, labelArgs)
+	if err != nil {
+		log.Errorf("failed to annotate node %v", nodeName)
+		return err
+	}
+	return nil
+}
+
+func getNodesByAnnotationKey(kubeClient kubernetes.Interface, key string) (map[string]string, error) {
+	results := make(map[string]string, 0)
+
+	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return results, err
+	}
+
+	for _, node := range nodes.Items {
+		annotations := node.GetAnnotations()
+		for k, v := range annotations {
+			if k == key {
+				results[node.Name] = v
+			}
+		}
+	}
+	return results, nil
 }

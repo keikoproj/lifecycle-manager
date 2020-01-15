@@ -26,8 +26,6 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 
 	for {
 		iterationCount++
-		time.Sleep(time.Duration(recommendedInterval) * time.Second)
-
 		if iterationCount >= maxIterations {
 			// hard limit in case event is not marked completed
 			log.Warnf("heartbeat extended over threshold, instance will be abandoned")
@@ -44,6 +42,7 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 			log.Errorf("failed to send heartbeat for event with instance %v: %v", instanceID, err)
 			return
 		}
+		time.Sleep(time.Duration(recommendedInterval) * time.Second)
 	}
 }
 

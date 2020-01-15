@@ -19,6 +19,14 @@ import (
 func init() {
 	ThreadJitterRangeSeconds = 0
 	IterationJitterRangeSeconds = 0
+	WaiterDelayIntervalSeconds = 1
+	WaiterMaxAttempts = 3
+	NodeAgeCacheTTL = 100
+}
+
+func _completeEventAfter(event *LifecycleEvent, t time.Duration) {
+	time.Sleep(t)
+	event.SetEventCompleted(true)
 }
 
 func Test_RejectHandler(t *testing.T) {
@@ -61,6 +69,11 @@ func Test_RejectHandler(t *testing.T) {
 	expectedFailedEvents := 1
 	if mgr.rejectedEvents != expectedFailedEvents {
 		t.Fatalf("expected rejected events: %v, got: %v", expectedFailedEvents, mgr.rejectedEvents)
+	}
+
+	expectedDeleteMessageEvents := 1
+	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
+		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
 	}
 }
 
@@ -381,7 +394,7 @@ func Test_HandleEventWithDeregisterError(t *testing.T) {
 				TargetGroupArn: aws.String(arn),
 			},
 		},
-		failHint: "DeregisterTargets",
+		failHint: elb.ErrCodeAccessPointNotFoundException,
 	}
 
 	elbStubber := &stubErrorELB{
@@ -396,7 +409,7 @@ func Test_HandleEventWithDeregisterError(t *testing.T) {
 				State:      aws.String("OutOfService"),
 			},
 		},
-		failHint: "DeregisterInstancesFromLoadBalancer",
+		failHint: "some-other-error",
 	}
 
 	auth := Authenticator{
