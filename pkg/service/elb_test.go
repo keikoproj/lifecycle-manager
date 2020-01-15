@@ -173,7 +173,7 @@ func Test_DeregisterWaiterAbort(t *testing.T) {
 		},
 	}
 
-	go _completeEventAfter(event, time.Second*1)
+	go _completeEventAfter(event, time.Millisecond*1500)
 	err := waitForDeregisterInstance(event, stubber, elbName, instanceID)
 	if err == nil {
 		t.Fatalf("Test_DeregisterWaiterAbort: expected error to have occured, got: %v", err)

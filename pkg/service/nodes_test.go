@@ -1,9 +1,11 @@
 package service
 
 import (
+	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -65,6 +67,52 @@ func Test_GetNodeByInstanceNegative(t *testing.T) {
 
 	if exists != expected {
 		t.Fatalf("expected getNodeByInstance exists to be: %v, got: %v", expected, exists)
+	}
+}
+
+func Test_GetNodesByAnnotationKey(t *testing.T) {
+	t.Log("Test_GetNodesByAnnotationKey: Get map of nodes annotation values by a key")
+	kubeClient := fake.NewSimpleClientset()
+	fakeNodes := []v1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-1",
+				Annotations: map[string]string{
+					"some-key": "some-value",
+				},
+			},
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2a/i-11111111111111111",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+				Annotations: map[string]string{
+					"some-other-key": "some-value",
+				},
+			},
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2c/i-22222222222222222",
+			},
+		},
+	}
+
+	for _, node := range fakeNodes {
+		kubeClient.CoreV1().Nodes().Create(&node)
+	}
+
+	result, err := getNodesByAnnotationKey(kubeClient, "some-key")
+	expected := map[string]string{
+		"node-1": "some-value",
+	}
+
+	if err != nil {
+		t.Fatalf("getNodesByAnnotationKey: expected error not to have occured, %v", err)
+	}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("getNodesByAnnotationKey: expected: %v, got: %v", expected, result)
 	}
 }
 
