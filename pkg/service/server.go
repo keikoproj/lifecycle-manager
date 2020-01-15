@@ -413,7 +413,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	nodeCreationTime := node.CreationTimestamp.UTC()
 	nodeAge := int(now.Sub(nodeCreationTime).Minutes())
 	if nodeAge <= NodeAgeCacheTTL {
-		log.Infof("Node younger than %vm was terminated, flushing DescribeTargetHealth caches", NodeAgeCacheTTL)
+		log.Warnf("Node younger than %vm was terminated, flushing caches", NodeAgeCacheTTL)
 		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeTargetHealth")
 		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeInstanceHealth")
 	}
