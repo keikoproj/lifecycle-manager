@@ -1,38 +1,55 @@
 package service
 
 import (
-	"context"
+	"errors"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func waitForDeregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) error {
+func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI, elbName, instanceID string) error {
 	var (
-		MaxAttempts = 500
+		found bool
 	)
 
-	waiterOpts := []request.WaiterOption{
-		request.WithWaiterMaxAttempts(MaxAttempts),
-	}
 	input := &elb.DescribeInstanceHealthInput{
 		LoadBalancerName: aws.String(elbName),
-		Instances: []*elb.Instance{
-			{
-				InstanceId: aws.String(instanceID),
-			},
-		},
 	}
 
-	err := elbClient.WaitUntilInstanceDeregisteredWithContext(context.Background(), input, waiterOpts...)
-	if err != nil {
-		return err
+	for i := 0; i < WaiterMaxAttempts; i++ {
+
+		if event.eventCompleted {
+			return errors.New("event finished execution during deregistration wait")
+		}
+
+		found = false
+		instances, err := elbClient.DescribeInstanceHealth(input)
+		if err != nil {
+			return err
+		}
+		for _, state := range instances.InstanceStates {
+			if aws.StringValue(state.InstanceId) == instanceID {
+				found = true
+				if aws.StringValue(state.State) == "OutOfService" {
+					return nil
+				}
+				break
+			}
+		}
+		if !found {
+			log.Debugf("instance %v not found in elb %v", instanceID, elbName)
+			return nil
+		}
+		log.Debugf("target %v is still deregistering from %v", instanceID, elbName)
+		time.Sleep(time.Second * time.Duration(WaiterDelayIntervalSeconds))
 	}
-	return nil
+
+	err := errors.New("wait for target deregister timed out")
+	return err
 }
 
 func findInstanceInClassicBalancer(elbClient elbiface.ELBAPI, elbName, instanceID string) (bool, error) {
@@ -62,7 +79,6 @@ func deregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) e
 		},
 	}
 
-	log.Infof("deregistering %v from %v", instanceID, elbName)
 	_, err := elbClient.DeregisterInstancesFromLoadBalancer(input)
 	if err != nil {
 		return err

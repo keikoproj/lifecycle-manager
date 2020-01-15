@@ -23,6 +23,22 @@ func getQueueURLByName(s sqsiface.SQSAPI, name string) string {
 	return aws.StringValue(resultURL.QueueUrl)
 }
 
+func serializeMessage(message *sqs.Message) ([]byte, error) {
+	serialized, err := json.Marshal(message)
+	if err != nil {
+		return serialized, err
+	}
+	return serialized, nil
+}
+
+func deserializeMessage(message string) (*sqs.Message, error) {
+	sqsMessage := &sqs.Message{}
+	err := json.Unmarshal([]byte(message), sqsMessage)
+	if err != nil {
+		return sqsMessage, err
+	}
+	return sqsMessage, nil
+}
 func readMessage(message *sqs.Message) (*LifecycleEvent, error) {
 	var (
 		event   = &LifecycleEvent{}

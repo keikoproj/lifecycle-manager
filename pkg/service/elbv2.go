@@ -1,40 +1,55 @@
 package service
 
 import (
-	"context"
+	"errors"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func waitForDeregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
+func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2API, arn, instanceID string, port int64) error {
 	var (
-		MaxAttempts = 500
+		found bool
 	)
-
-	waiterOpts := []request.WaiterOption{
-		request.WithWaiterMaxAttempts(MaxAttempts),
-	}
 
 	input := &elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(arn),
-		Targets: []*elbv2.TargetDescription{
-			{
-				Id:   aws.String(instanceID),
-				Port: aws.Int64(port),
-			},
-		},
 	}
 
-	err := elbClient.WaitUntilTargetDeregisteredWithContext(context.Background(), input, waiterOpts...)
-	if err != nil {
-		return err
+	for i := 0; i < WaiterMaxAttempts; i++ {
+
+		if event.eventCompleted {
+			return errors.New("event finished execution during deregistration wait")
+		}
+
+		found = false
+		targets, err := elbClient.DescribeTargetHealth(input)
+		if err != nil {
+			return err
+		}
+		for _, targetDescription := range targets.TargetHealthDescriptions {
+			if aws.StringValue(targetDescription.Target.Id) == instanceID && aws.Int64Value(targetDescription.Target.Port) == port {
+				found = true
+				if aws.StringValue(targetDescription.TargetHealth.State) == elbv2.TargetHealthStateEnumUnused {
+					return nil
+				}
+				break
+			}
+		}
+		if !found {
+			log.Debugf("target %v not found in target group %v", instanceID, arn)
+			return nil
+		}
+		log.Debugf("target %v is still deregistering from %v", instanceID, arn)
+		time.Sleep(time.Second * time.Duration(WaiterDelayIntervalSeconds))
 	}
-	return nil
+
+	err := errors.New("wait for target deregister timed out")
+	return err
 }
 
 func findInstanceInTargetGroup(elbClient elbv2iface.ELBV2API, arn, instanceID string) (bool, int64, error) {
@@ -44,7 +59,7 @@ func findInstanceInTargetGroup(elbClient elbv2iface.ELBV2API, arn, instanceID st
 
 	target, err := elbClient.DescribeTargetHealth(input)
 	if err != nil {
-		log.Infof("failed finding instance %v in target group %v: %v", instanceID, arn, err.Error())
+		log.Errorf("failed finding instance %v in target group %v: %v", instanceID, arn, err.Error())
 		return false, 0, err
 	}
 	for _, desc := range target.TargetHealthDescriptions {
@@ -67,7 +82,6 @@ func deregisterTarget(elbClient elbv2iface.ELBV2API, arn, instanceID string, por
 		TargetGroupArn: aws.String(arn),
 	}
 
-	log.Infof("deregistering %v from %v", instanceID, arn)
 	_, err := elbClient.DeregisterTargets(input)
 	if err != nil {
 		return err

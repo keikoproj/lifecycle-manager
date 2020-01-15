@@ -17,8 +17,16 @@ import (
 )
 
 func init() {
-	ThreadJitterRangeSeconds = 1
-	DeregisterJitterRangeSeconds = 1
+	ThreadJitterRangeSeconds = 0
+	IterationJitterRangeSeconds = 0
+	WaiterDelayIntervalSeconds = 1
+	WaiterMaxAttempts = 3
+	NodeAgeCacheTTL = 100
+}
+
+func _completeEventAfter(event *LifecycleEvent, t time.Duration) {
+	time.Sleep(t)
+	event.SetEventCompleted(true)
 }
 
 func Test_RejectHandler(t *testing.T) {
@@ -271,6 +279,9 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 					Id:   aws.String(instanceID),
 					Port: aws.Int64(port),
 				},
+				TargetHealth: &elbv2.TargetHealth{
+					State: aws.String(elbv2.TargetHealthStateEnumUnused),
+				},
 			},
 		},
 		targetGroups: []*elbv2.TargetGroup{
@@ -289,6 +300,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 		instanceStates: []*elb.InstanceState{
 			{
 				InstanceId: aws.String(instanceID),
+				State:      aws.String("OutOfService"),
 			},
 		},
 	}
@@ -372,100 +384,8 @@ func Test_HandleEventWithDeregisterError(t *testing.T) {
 					Id:   aws.String(instanceID),
 					Port: aws.Int64(port),
 				},
-			},
-		},
-		targetGroups: []*elbv2.TargetGroup{
-			{
-				TargetGroupArn: aws.String(arn),
-			},
-		},
-		failHint: "DeregisterTargets",
-	}
-
-	elbStubber := &stubErrorELB{
-		loadBalancerDescriptions: []*elb.LoadBalancerDescription{
-			{
-				LoadBalancerName: aws.String(elbName),
-			},
-		},
-		instanceStates: []*elb.InstanceState{
-			{
-				InstanceId: aws.String(instanceID),
-			},
-		},
-		failHint: "DeregisterInstancesFromLoadBalancer",
-	}
-
-	auth := Authenticator{
-		ScalingGroupClient: asgStubber,
-		SQSClient:          sqsStubber,
-		ELBv2Client:        elbv2Stubber,
-		ELBClient:          elbStubber,
-		KubernetesClient:   fake.NewSimpleClientset(),
-	}
-
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-		WithDeregister:         true,
-	}
-
-	fakeNodes := []v1.Node{
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: fmt.Sprintf("aws:///us-west-2a/%v", instanceID),
-			},
-		},
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: "aws:///us-west-2c/i-22222222222222222",
-			},
-		},
-	}
-
-	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
-	}
-
-	event := &LifecycleEvent{
-		LifecycleHookName:    "my-hook",
-		AccountID:            "12345689012",
-		RequestID:            "63f5b5c2-58b3-0574-b7d5-b3162d0268f0",
-		LifecycleTransition:  "autoscaling:EC2_INSTANCE_TERMINATING",
-		AutoScalingGroupName: "my-asg",
-		EC2InstanceID:        instanceID,
-		LifecycleActionToken: "cc34960c-1e41-4703-a665-bdb3e5b81ad3",
-		receiptHandle:        "MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw=",
-		heartbeatInterval:    3,
-	}
-
-	g := New(auth, ctx)
-	err := g.handleEvent(event)
-	if err == nil {
-		t.Fatalf("handleEvent: expected error but did not get an error")
-	}
-}
-
-func Test_HandleEventWaitUntilTargetDeregisterError(t *testing.T) {
-	t.Log("Test_HandleEvent: should successfully handle events")
-	var (
-		asgStubber       = &stubAutoscaling{}
-		sqsStubber       = &stubSQS{}
-		arn              = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
-		elbName          = "my-classic-elb"
-		instanceID       = "i-123486890234"
-		port       int64 = 122233
-	)
-
-	elbv2Stubber := &stubErrorELBv2{
-		targetHealthDescriptions: []*elbv2.TargetHealthDescription{
-			{
-				Target: &elbv2.TargetDescription{
-					Id:   aws.String(instanceID),
-					Port: aws.Int64(port),
+				TargetHealth: &elbv2.TargetHealth{
+					State: aws.String(elbv2.TargetHealthStateEnumUnused),
 				},
 			},
 		},
@@ -474,7 +394,7 @@ func Test_HandleEventWaitUntilTargetDeregisterError(t *testing.T) {
 				TargetGroupArn: aws.String(arn),
 			},
 		},
-		failHint: "WaitUntilTargetDeregisteredWithContext",
+		failHint: elb.ErrCodeAccessPointNotFoundException,
 	}
 
 	elbStubber := &stubErrorELB{
@@ -486,9 +406,10 @@ func Test_HandleEventWaitUntilTargetDeregisterError(t *testing.T) {
 		instanceStates: []*elb.InstanceState{
 			{
 				InstanceId: aws.String(instanceID),
+				State:      aws.String("OutOfService"),
 			},
 		},
-		failHint: "WaitUntilInstanceDeregisteredWithContext",
+		failHint: "some-other-error",
 	}
 
 	auth := Authenticator{

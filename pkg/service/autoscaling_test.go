@@ -51,7 +51,7 @@ func Test_SendHeartbeatPositive(t *testing.T) {
 
 	go event._setEventCompletedAfter(true, 2)
 	sendHeartbeat(stubber, event)
-	expectedHeartbeatCalls := 2
+	expectedHeartbeatCalls := 3
 
 	if stubber.timesCalledRecordLifecycleActionHeartbeat != expectedHeartbeatCalls {
 		t.Fatalf("expected timesCalledRecordLifecycleActionHeartbeat: %v, got: %v", expectedHeartbeatCalls, stubber.timesCalledRecordLifecycleActionHeartbeat)

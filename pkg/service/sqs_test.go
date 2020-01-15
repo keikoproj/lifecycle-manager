@@ -48,6 +48,18 @@ func _quitPollerAfter(quitter chan bool, seconds int64) {
 	quitter <- true
 }
 
+func Test_DesserializeMessage(t *testing.T) {
+	t.Log("Test_DesserializeMessage: should be able to deserialize a string to sqs Message")
+	message := `{"Attributes":{"SenderId":"ABCD:efg"},"Body":"{\"LifecycleHookName\":\"test\",\"AccountId\":\"0000000\",\"RequestId\":\"c2281dfd\",\"LifecycleTransition\":\"autoscaling:EC2_INSTANCE_TERMINATING\",\"AutoScalingGroupName\":\"some-asg\",\"Service\":\"AWS Auto Scaling\",\"Time\":\"2020-01-15T03:54:51.913Z\",\"EC2InstanceId\":\"i-0000000000\",\"LifecycleActionToken\":\"c7b2144c\"}","MD5OfBody":"123123123123","MD5OfMessageAttributes":null,"MessageAttributes":null,"MessageId":"c643f9fc","ReceiptHandle":"AQEBVkU="}`
+	sqsMessage, err := deserializeMessage(message)
+	if err != nil {
+		t.Fatalf("deserializeMessage: expected error not to have occured, %v", err)
+	}
+	if aws.StringValue(sqsMessage.Body) == "" {
+		t.Fatalf("deserializeMessage: expected sqsMessage.Body not to be empty")
+	}
+}
+
 func Test_GetQueueURLByNamePositive(t *testing.T) {
 	t.Log("Test_GetQueueURLByName: should be able to fetch queue URL by it's name")
 	fakeQueueName := "my-queue"

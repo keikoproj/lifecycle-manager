@@ -1,9 +1,11 @@
 package service
 
 import (
+	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -68,6 +70,52 @@ func Test_GetNodeByInstanceNegative(t *testing.T) {
 	}
 }
 
+func Test_GetNodesByAnnotationKey(t *testing.T) {
+	t.Log("Test_GetNodesByAnnotationKey: Get map of nodes annotation values by a key")
+	kubeClient := fake.NewSimpleClientset()
+	fakeNodes := []v1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-1",
+				Annotations: map[string]string{
+					"some-key": "some-value",
+				},
+			},
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2a/i-11111111111111111",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+				Annotations: map[string]string{
+					"some-other-key": "some-value",
+				},
+			},
+			Spec: v1.NodeSpec{
+				ProviderID: "aws:///us-west-2c/i-22222222222222222",
+			},
+		},
+	}
+
+	for _, node := range fakeNodes {
+		kubeClient.CoreV1().Nodes().Create(&node)
+	}
+
+	result, err := getNodesByAnnotationKey(kubeClient, "some-key")
+	expected := map[string]string{
+		"node-1": "some-value",
+	}
+
+	if err != nil {
+		t.Fatalf("getNodesByAnnotationKey: expected error not to have occured, %v", err)
+	}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("getNodesByAnnotationKey: expected: %v, got: %v", expected, result)
+	}
+}
+
 func Test_DrainNodePositive(t *testing.T) {
 	t.Log("Test_DrainNodePositive: If drain process is successful, process should exit successfully")
 	err := drainNode(stubKubectlPathSuccess, "some-node", 10, 0)
@@ -107,11 +155,10 @@ func Test_RunCommand(t *testing.T) {
 func Test_LabelNodePositive(t *testing.T) {
 	t.Log("Test_LabelNode: should not return an error if succesful")
 	var (
-		kubeClient = fake.NewSimpleClientset()
-		nodeName   = "some-node"
+		nodeName = "some-node"
 	)
 
-	err := labelNode(kubeClient, stubKubectlPathSuccess, nodeName, ExcludeLabelKey, ExcludeLabelValue)
+	err := labelNode(stubKubectlPathSuccess, nodeName, ExcludeLabelKey, ExcludeLabelValue)
 	if err != nil {
 		t.Fatalf("Test_LabelNode: expected error not to have occured, %v", err)
 	}
@@ -120,11 +167,10 @@ func Test_LabelNodePositive(t *testing.T) {
 func Test_LabelNodeNegative(t *testing.T) {
 	t.Log("Test_LabelNode: should return an error if succesful")
 	var (
-		kubeClient = fake.NewSimpleClientset()
-		nodeName   = "some-node"
+		nodeName = "some-node"
 	)
 
-	err := labelNode(kubeClient, stubKubectlPathFail, nodeName, ExcludeLabelKey, ExcludeLabelValue)
+	err := labelNode(stubKubectlPathFail, nodeName, ExcludeLabelKey, ExcludeLabelValue)
 	if err == nil {
 		t.Fatalf("Test_LabelNode: expected error to have occured, %v", err)
 	}

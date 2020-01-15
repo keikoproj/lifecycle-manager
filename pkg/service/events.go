@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"math/rand"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 
@@ -113,9 +114,10 @@ func newKubernetesEvent(reason EventReason, msgFields map[string]string, refNode
 		msgPayload = fmt.Sprintf("%v", msgFields)
 	}
 
+	eventName := fmt.Sprintf("%v-%v.%v", "lifecycle-manager", time.Now().Unix(), rand.Int())
 	event := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(EventName, time.Now().UnixNano()),
+			Name:      eventName,
 			Namespace: EventNamespace,
 		},
 		Reason:  string(reason),
