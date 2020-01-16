@@ -5,7 +5,7 @@
 + Bugfix: Proceed with drain failure (#37)
 + Bugfix: Drop goroutines when instance abandoned (#34)
 + Idempotency - resume operations after pod restart (#35)
-+ API Caching - cache AWS calls to improve preformance (#35)
++ API Caching - cache AWS calls to improve performance (#35)
 
 ## 0.3.2
 
