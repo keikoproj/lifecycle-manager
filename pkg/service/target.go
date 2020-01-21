@@ -67,17 +67,16 @@ func (m *Manager) GetTargetMapping(key interface{}) map[string]int64 {
 func (m *Manager) AddTargetByInstance(key interface{}, add *Target) {
 	targets := m.LoadTargets(key)
 	newTargets := []*Target{}
-	conflict := false
-	// TODO: Implement this better
+	found := false
 	for _, target := range targets {
 		if target.InstanceId == add.InstanceId {
-			conflict = true
+			found = true
 			newTargets = append(newTargets, add)
 		} else {
 			newTargets = append(newTargets, target)
 		}
 	}
-	if len(targets) == 0 || !conflict {
+	if !found {
 		newTargets = append(newTargets, add)
 	}
 	m.SetTargets(key, newTargets)
