@@ -19,7 +19,8 @@ import (
 func init() {
 	ThreadJitterRangeSeconds = 0
 	IterationJitterRangeSeconds = 0
-	WaiterDelayIntervalSeconds = 1
+	WaiterDelayInterval = 1 * time.Second
+	WaiterMinDelay = 2 * time.Second
 	WaiterMaxAttempts = 3
 	NodeAgeCacheTTL = 100
 }
@@ -352,6 +353,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 	}
 
 	g := New(auth, ctx)
+	go g.newDeregistrator()
 	err := g.handleEvent(event)
 	if err != nil {
 		t.Fatalf("handleEvent: expected error not to have occured, %v", err)

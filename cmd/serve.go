@@ -4,11 +4,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
@@ -21,6 +19,7 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"github.com/keikoproj/lifecycle-manager/pkg/service"
 	"github.com/spf13/cobra"
+	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -186,7 +185,7 @@ func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", DescribeLoadBalancersTTL)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-		log.Debugf("cached => %v, service => %s.%s",
+		log.Debugf("cache hit => %v, service => %s.%s",
 			cache.IsCacheHit(ctx),
 			r.ClientInfo.ServiceName,
 			r.Operation.Name,

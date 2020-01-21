@@ -1,6 +1,6 @@
 # github.com/avast/retry-go v2.4.1+incompatible
 github.com/avast/retry-go
-# github.com/aws/aws-sdk-go v1.25.0
+# github.com/aws/aws-sdk-go v1.27.3
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -25,8 +25,8 @@ github.com/aws/aws-sdk-go/internal/sdkmath
 github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/internal/sdkuri
 github.com/aws/aws-sdk-go/internal/shareddefaults
+github.com/aws/aws-sdk-go/internal/strings
 github.com/aws/aws-sdk-go/private/protocol
-github.com/aws/aws-sdk-go/private/protocol/ec2query
 github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
 github.com/aws/aws-sdk-go/private/protocol/jsonrpc
 github.com/aws/aws-sdk-go/private/protocol/query
@@ -35,7 +35,6 @@ github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/autoscaling
 github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface
-github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/elb
 github.com/aws/aws-sdk-go/service/elb/elbiface
 github.com/aws/aws-sdk-go/service/elbv2
@@ -80,6 +79,8 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/karlseguin/ccache v2.0.2+incompatible
 github.com/karlseguin/ccache
+# github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
+github.com/keikoproj/inverse-exp-backoff
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
@@ -110,8 +111,7 @@ github.com/sirupsen/logrus
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114200444-92e4b18a55fa
-github.com/ticketmaster/aws-sdk-go-cache
+# github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114210642-9a510f7c39db
 github.com/ticketmaster/aws-sdk-go-cache/cache
 # golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 golang.org/x/crypto/ssh/terminal
@@ -145,7 +145,7 @@ google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
-# gopkg.in/yaml.v2 v2.2.2
+# gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
 # k8s.io/api v0.0.0-20190927115716-5d581ce610b0
 k8s.io/api/admissionregistration/v1beta1

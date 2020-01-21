@@ -4,18 +4,19 @@ go 1.12
 
 require (
 	github.com/avast/retry-go v2.4.1+incompatible
-	github.com/aws/aws-sdk-go v1.25.0
+	github.com/aws/aws-sdk-go v1.27.3
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.2.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114200444-92e4b18a55fa
+	github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114210642-9a510f7c39db
 	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad // indirect
 	golang.org/x/net v0.0.0-20190926025831-c00fd9afed17 // indirect
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
