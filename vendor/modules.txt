@@ -79,6 +79,8 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/karlseguin/ccache v2.0.2+incompatible
 github.com/karlseguin/ccache
+# github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200122222443-cdcfc928dfa1
+github.com/keikoproj/aws-sdk-go-cache/cache
 # github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 github.com/keikoproj/inverse-exp-backoff
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
@@ -111,8 +113,6 @@ github.com/sirupsen/logrus
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/ticketmaster/aws-sdk-go-cache v0.0.0-20200114210642-9a510f7c39db
-github.com/ticketmaster/aws-sdk-go-cache/cache
 # golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20190926025831-c00fd9afed17
