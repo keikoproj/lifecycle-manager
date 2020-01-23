@@ -1,6 +1,6 @@
 # github.com/avast/retry-go v2.4.1+incompatible
 github.com/avast/retry-go
-# github.com/aws/aws-sdk-go v1.27.3
+# github.com/aws/aws-sdk-go v1.25.0
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -25,7 +25,6 @@ github.com/aws/aws-sdk-go/internal/sdkmath
 github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/internal/sdkuri
 github.com/aws/aws-sdk-go/internal/shareddefaults
-github.com/aws/aws-sdk-go/internal/strings
 github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
 github.com/aws/aws-sdk-go/private/protocol/jsonrpc
@@ -79,7 +78,7 @@ github.com/jmespath/go-jmespath
 github.com/json-iterator/go
 # github.com/karlseguin/ccache v2.0.2+incompatible
 github.com/karlseguin/ccache
-# github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200122222443-cdcfc928dfa1
+# github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200123011647-d9182b193fe5
 github.com/keikoproj/aws-sdk-go-cache/cache
 # github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 github.com/keikoproj/inverse-exp-backoff
@@ -97,13 +96,13 @@ github.com/pkg/errors
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
-# github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
+# github.com/prometheus/client_model v0.2.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.7.0
+# github.com/prometheus/common v0.9.1
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.0.5
+# github.com/prometheus/procfs v0.0.8
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
@@ -115,7 +114,7 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20190926025831-c00fd9afed17
+# golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts

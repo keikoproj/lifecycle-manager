@@ -16,16 +16,16 @@
 // You can use the resource groups tagging API operations to complete the following
 // tasks:
 //
-//    * Tag and untag supported resources located in the specified Region for
-//    the AWS account.
+//    * Tag and untag supported resources located in the specified region for
+//    the AWS account
 //
 //    * Use tag-based filters to search for resources located in the specified
-//    Region for the AWS account.
+//    region for the AWS account
 //
-//    * List all existing tag keys in the specified Region for the AWS account.
+//    * List all existing tag keys in the specified region for the AWS account
 //
-//    * List all existing values for the specified key in the specified Region
-//    for the AWS account.
+//    * List all existing values for the specified key in the specified region
+//    for the AWS account
 //
 // To use resource groups tagging API operations, you must add the following
 // permissions to your IAM policy:
@@ -53,7 +53,7 @@
 //
 //    * API Gateway
 //
-//    * Amazon AppStream
+//    * AWS AppStream
 //
 //    * AWS AppSync
 //
@@ -105,7 +105,7 @@
 //
 //    * AWS Database Migration Service
 //
-//    * AWS DataSync
+//    * AWS Datasync
 //
 //    * AWS Direct Connect
 //
@@ -141,11 +141,9 @@
 //
 //    * Amazon FSx
 //
-//    * Amazon S3 Glacier
+//    * Amazon Glacier
 //
 //    * AWS Glue
-//
-//    * Amazon GuardDuty
 //
 //    * Amazon Inspector
 //
@@ -156,8 +154,6 @@
 //    * AWS IoT Device Defender
 //
 //    * AWS IoT Device Management
-//
-//    * AWS IoT Events
 //
 //    * AWS IoT Greengrass
 //
@@ -183,10 +179,6 @@
 //
 //    * AWS OpsWorks
 //
-//    * AWS Organizations
-//
-//    * Amazon Quantum Ledger Database (QLDB)
-//
 //    * Amazon RDS
 //
 //    * Amazon Redshift
@@ -207,19 +199,17 @@
 //
 //    * AWS Secrets Manager
 //
-//    * AWS Security Hub
-//
 //    * AWS Service Catalog
 //
 //    * Amazon Simple Notification Service (SNS)
 //
 //    * Amazon Simple Queue Service (SQS)
 //
+//    * AWS Simple System Manager (SSM)
+//
 //    * AWS Step Functions
 //
 //    * AWS Storage Gateway
-//
-//    * AWS Systems Manager
 //
 //    * AWS Transfer for SFTP
 //

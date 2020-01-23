@@ -320,11 +320,6 @@ func (c *ELBV2) CreateListenerRequest(input *CreateListenerInput) (req *request.
 //   * ErrCodeInvalidLoadBalancerActionException "InvalidLoadBalancerAction"
 //   The requested action is not valid.
 //
-//   * ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException "TooManyUniqueTargetGroupsPerLoadBalancer"
-//   You've reached the limit on the number of unique target groups per load balancer
-//   across all listeners. If a target group is used by multiple actions for a
-//   load balancer, it is counted as only one use.
-//
 // See also, https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancingv2-2015-12-01/CreateListener
 func (c *ELBV2) CreateListener(input *CreateListenerInput) (*CreateListenerOutput, error) {
 	req, out := c.CreateListenerRequest(input)
@@ -587,11 +582,6 @@ func (c *ELBV2) CreateRuleRequest(input *CreateRuleInput) (req *request.Request,
 //
 //   * ErrCodeInvalidLoadBalancerActionException "InvalidLoadBalancerAction"
 //   The requested action is not valid.
-//
-//   * ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException "TooManyUniqueTargetGroupsPerLoadBalancer"
-//   You've reached the limit on the number of unique target groups per load balancer
-//   across all listeners. If a target group is used by multiple actions for a
-//   load balancer, it is counted as only one use.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancingv2-2015-12-01/CreateRule
 func (c *ELBV2) CreateRule(input *CreateRuleInput) (*CreateRuleOutput, error) {
@@ -1456,12 +1446,10 @@ func (c *ELBV2) DescribeListenersPagesWithContext(ctx aws.Context, input *Descri
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*DescribeListenersOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*DescribeListenersOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -1680,12 +1668,10 @@ func (c *ELBV2) DescribeLoadBalancersPagesWithContext(ctx aws.Context, input *De
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*DescribeLoadBalancersOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*DescribeLoadBalancersOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -2167,12 +2153,10 @@ func (c *ELBV2) DescribeTargetGroupsPagesWithContext(ctx aws.Context, input *Des
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*DescribeTargetGroupsOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*DescribeTargetGroupsOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -2307,17 +2291,13 @@ func (c *ELBV2) ModifyListenerRequest(input *ModifyListenerInput) (req *request.
 
 // ModifyListener API operation for Elastic Load Balancing.
 //
-// Replaces the specified properties of the specified listener. Any properties
-// that you do not specify remain unchanged.
+// Modifies the specified properties of the specified listener.
 //
-// Changing the protocol from HTTPS to HTTP, or from TLS to TCP, removes the
+// Any properties that you do not specify retain their current values. However,
+// changing the protocol from HTTPS to HTTP, or from TLS to TCP, removes the
 // security policy and default certificate properties. If you change the protocol
 // from HTTP to HTTPS, or from TCP to TLS, you must add the security policy
 // and default certificate properties.
-//
-// To add an item to a list, remove an item from a list, or update an item in
-// a list, you must provide the entire list. For example, to add an action,
-// specify a list with the current actions plus the new action.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -2372,11 +2352,6 @@ func (c *ELBV2) ModifyListenerRequest(input *ModifyListenerInput) (req *request.
 //
 //   * ErrCodeInvalidLoadBalancerActionException "InvalidLoadBalancerAction"
 //   The requested action is not valid.
-//
-//   * ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException "TooManyUniqueTargetGroupsPerLoadBalancer"
-//   You've reached the limit on the number of unique target groups per load balancer
-//   across all listeners. If a target group is used by multiple actions for a
-//   load balancer, it is counted as only one use.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancingv2-2015-12-01/ModifyListener
 func (c *ELBV2) ModifyListener(input *ModifyListenerInput) (*ModifyListenerOutput, error) {
@@ -2531,12 +2506,9 @@ func (c *ELBV2) ModifyRuleRequest(input *ModifyRuleInput) (req *request.Request,
 
 // ModifyRule API operation for Elastic Load Balancing.
 //
-// Replaces the specified properties of the specified rule. Any properties that
-// you do not specify are unchanged.
+// Modifies the specified rule.
 //
-// To add an item to a list, remove an item from a list, or update an item in
-// a list, you must provide the entire list. For example, to add an action,
-// specify a list with the current actions plus the new action.
+// Any existing properties that you do not modify retain their current values.
 //
 // To modify the actions for the default rule, use ModifyListener.
 //
@@ -2578,11 +2550,6 @@ func (c *ELBV2) ModifyRuleRequest(input *ModifyRuleInput) (req *request.Request,
 //
 //   * ErrCodeInvalidLoadBalancerActionException "InvalidLoadBalancerAction"
 //   The requested action is not valid.
-//
-//   * ErrCodeTooManyUniqueTargetGroupsPerLoadBalancerException "TooManyUniqueTargetGroupsPerLoadBalancer"
-//   You've reached the limit on the number of unique target groups per load balancer
-//   across all listeners. If a target group is used by multiple actions for a
-//   load balancer, it is counted as only one use.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/elasticloadbalancingv2-2015-12-01/ModifyRule
 func (c *ELBV2) ModifyRule(input *ModifyRuleInput) (*ModifyRuleOutput, error) {
@@ -3370,12 +3337,11 @@ func (c *ELBV2) SetSubnetsRequest(input *SetSubnetsInput) (req *request.Request,
 
 // SetSubnets API operation for Elastic Load Balancing.
 //
-// Enables the Availability Zones for the specified public subnets for the specified
-// load balancer. The specified subnets replace the previously enabled subnets.
+// Enables the Availability Zone for the specified public subnets for the specified
+// Application Load Balancer. The specified subnets replace the previously enabled
+// subnets.
 //
-// When you specify subnets for a Network Load Balancer, you must include all
-// subnets that were enabled previously, with their existing configurations,
-// plus any additional subnets.
+// You can't change the subnets for a Network Load Balancer.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -3441,17 +3407,9 @@ type Action struct {
 	// a custom HTTP response. Specify only when Type is fixed-response.
 	FixedResponseConfig *FixedResponseActionConfig `type:"structure"`
 
-	// Information for creating an action that distributes requests among one or
-	// more target groups. For Network Load Balancers, you can specify a single
-	// target group. Specify only when Type is forward. If you specify both ForwardConfig
-	// and TargetGroupArn, you can specify only one target group using ForwardConfig
-	// and it must be the same target group specified in TargetGroupArn.
-	ForwardConfig *ForwardActionConfig `type:"structure"`
-
 	// The order for the action. This value is required for rules with multiple
 	// actions. The action with the lowest value for order is performed first. The
-	// last action to be performed must be one of the following types of actions:
-	// a forward, fixed-response, or redirect.
+	// final action to be performed must be a forward or a fixed-response action.
 	Order *int64 `min:"1" type:"integer"`
 
 	// [Application Load Balancer] Information for creating a redirect action. Specify
@@ -3459,11 +3417,11 @@ type Action struct {
 	RedirectConfig *RedirectActionConfig `type:"structure"`
 
 	// The Amazon Resource Name (ARN) of the target group. Specify only when Type
-	// is forward and you want to route to a single target group. To route to one
-	// or more target groups, use ForwardConfig instead.
+	// is forward.
 	TargetGroupArn *string `type:"string"`
 
-	// The type of action.
+	// The type of action. Each rule must include exactly one of the following types
+	// of actions: forward, fixed-response, or redirect.
 	//
 	// Type is a required field
 	Type *string `type:"string" required:"true" enum:"ActionTypeEnum"`
@@ -3530,12 +3488,6 @@ func (s *Action) SetAuthenticateOidcConfig(v *AuthenticateOidcActionConfig) *Act
 // SetFixedResponseConfig sets the FixedResponseConfig field's value.
 func (s *Action) SetFixedResponseConfig(v *FixedResponseActionConfig) *Action {
 	s.FixedResponseConfig = v
-	return s
-}
-
-// SetForwardConfig sets the ForwardConfig field's value.
-func (s *Action) SetForwardConfig(v *ForwardActionConfig) *Action {
-	s.ForwardConfig = v
 	return s
 }
 
@@ -4032,8 +3984,7 @@ type AvailabilityZone struct {
 
 	// [Network Load Balancers] If you need static IP addresses for your load balancer,
 	// you can specify one Elastic IP address per Availability Zone when you create
-	// an internal-facing load balancer. For internal load balancers, you can specify
-	// a private IP address from the IPv4 range of the subnet.
+	// the load balancer.
 	LoadBalancerAddresses []*LoadBalancerAddress `type:"list"`
 
 	// The ID of the subnet. You can specify one subnet per Availability Zone.
@@ -4153,10 +4104,10 @@ type CreateListenerInput struct {
 	// The actions for the default rule. The rule must include one forward action
 	// or one or more fixed-response actions.
 	//
-	// If the action type is forward, you specify one or more target groups. The
-	// protocol of the target group must be HTTP or HTTPS for an Application Load
-	// Balancer. The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP
-	// for a Network Load Balancer.
+	// If the action type is forward, you specify a target group. The protocol of
+	// the target group must be HTTP or HTTPS for an Application Load Balancer.
+	// The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP for a
+	// Network Load Balancer.
 	//
 	// [HTTPS listeners] If the action type is authenticate-oidc, you authenticate
 	// users through an identity provider that is OpenID Connect (OIDC) compliant.
@@ -4325,8 +4276,8 @@ type CreateLoadBalancerInput struct {
 	//
 	// The nodes of an internal load balancer have only private IP addresses. The
 	// DNS name of an internal load balancer is publicly resolvable to the private
-	// IP addresses of the nodes. Therefore, internal load balancers can route requests
-	// only from clients with access to the VPC for the load balancer.
+	// IP addresses of the nodes. Therefore, internal load balancers can only route
+	// requests from clients with access to the VPC for the load balancer.
 	//
 	// The default is an Internet-facing load balancer.
 	Scheme *string `type:"string" enum:"LoadBalancerSchemeEnum"`
@@ -4343,9 +4294,7 @@ type CreateLoadBalancerInput struct {
 	//
 	// [Network Load Balancers] You can specify subnets from one or more Availability
 	// Zones. You can specify one Elastic IP address per subnet if you need static
-	// IP addresses for your internet-facing load balancer. For internal load balancers,
-	// you can specify one private IP address per subnet from the IPv4 range of
-	// the subnet.
+	// IP addresses for your load balancer.
 	SubnetMappings []*SubnetMapping `type:"list"`
 
 	// The IDs of the public subnets. You can specify only one subnet per Availability
@@ -4476,13 +4425,12 @@ type CreateRuleInput struct {
 	_ struct{} `type:"structure"`
 
 	// The actions. Each rule must include exactly one of the following types of
-	// actions: forward, fixed-response, or redirect, and it must be the last action
-	// to be performed.
+	// actions: forward, fixed-response, or redirect.
 	//
-	// If the action type is forward, you specify one or more target groups. The
-	// protocol of the target group must be HTTP or HTTPS for an Application Load
-	// Balancer. The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP
-	// for a Network Load Balancer.
+	// If the action type is forward, you specify a target group. The protocol of
+	// the target group must be HTTP or HTTPS for an Application Load Balancer.
+	// The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP for a
+	// Network Load Balancer.
 	//
 	// [HTTPS listeners] If the action type is authenticate-oidc, you authenticate
 	// users through an identity provider that is OpenID Connect (OIDC) compliant.
@@ -6127,40 +6075,6 @@ func (s *FixedResponseActionConfig) SetStatusCode(v string) *FixedResponseAction
 	return s
 }
 
-// Information about a forward action.
-type ForwardActionConfig struct {
-	_ struct{} `type:"structure"`
-
-	// The target group stickiness for the rule.
-	TargetGroupStickinessConfig *TargetGroupStickinessConfig `type:"structure"`
-
-	// One or more target groups. For Network Load Balancers, you can specify a
-	// single target group.
-	TargetGroups []*TargetGroupTuple `type:"list"`
-}
-
-// String returns the string representation
-func (s ForwardActionConfig) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s ForwardActionConfig) GoString() string {
-	return s.String()
-}
-
-// SetTargetGroupStickinessConfig sets the TargetGroupStickinessConfig field's value.
-func (s *ForwardActionConfig) SetTargetGroupStickinessConfig(v *TargetGroupStickinessConfig) *ForwardActionConfig {
-	s.TargetGroupStickinessConfig = v
-	return s
-}
-
-// SetTargetGroups sets the TargetGroups field's value.
-func (s *ForwardActionConfig) SetTargetGroups(v []*TargetGroupTuple) *ForwardActionConfig {
-	s.TargetGroups = v
-	return s
-}
-
 // Information about a host header condition.
 type HostHeaderConditionConfig struct {
 	_ struct{} `type:"structure"`
@@ -6297,12 +6211,6 @@ type Limit struct {
 	//    * rules-per-application-load-balancer
 	//
 	//    * target-groups
-	//
-	//    * target-groups-per-action-on-application-load-balancer
-	//
-	//    * target-groups-per-action-on-network-load-balancer
-	//
-	//    * target-groups-per-application-load-balancer
 	//
 	//    * targets-per-application-load-balancer
 	//
@@ -6447,8 +6355,8 @@ type LoadBalancer struct {
 	//
 	// The nodes of an internal load balancer have only private IP addresses. The
 	// DNS name of an internal load balancer is publicly resolvable to the private
-	// IP addresses of the nodes. Therefore, internal load balancers can route requests
-	// only from clients with access to the VPC for the load balancer.
+	// IP addresses of the nodes. Therefore, internal load balancers can only route
+	// requests from clients with access to the VPC for the load balancer.
 	Scheme *string `type:"string" enum:"LoadBalancerSchemeEnum"`
 
 	// The IDs of the security groups for the load balancer.
@@ -6550,15 +6458,11 @@ func (s *LoadBalancer) SetVpcId(v string) *LoadBalancer {
 type LoadBalancerAddress struct {
 	_ struct{} `type:"structure"`
 
-	// [Network Load Balancers] The allocation ID of the Elastic IP address for
-	// an internal-facing load balancer.
+	// [Network Load Balancers] The allocation ID of the Elastic IP address.
 	AllocationId *string `type:"string"`
 
 	// The static IP address.
 	IpAddress *string `type:"string"`
-
-	// [Network Load Balancers] The private IPv4 address for an internal load balancer.
-	PrivateIPv4Address *string `type:"string"`
 }
 
 // String returns the string representation
@@ -6580,12 +6484,6 @@ func (s *LoadBalancerAddress) SetAllocationId(v string) *LoadBalancerAddress {
 // SetIpAddress sets the IpAddress field's value.
 func (s *LoadBalancerAddress) SetIpAddress(v string) *LoadBalancerAddress {
 	s.IpAddress = &v
-	return s
-}
-
-// SetPrivateIPv4Address sets the PrivateIPv4Address field's value.
-func (s *LoadBalancerAddress) SetPrivateIPv4Address(v string) *LoadBalancerAddress {
-	s.PrivateIPv4Address = &v
 	return s
 }
 
@@ -6616,10 +6514,6 @@ type LoadBalancerAttribute struct {
 	//
 	//    * idle_timeout.timeout_seconds - The idle timeout value, in seconds. The
 	//    valid range is 1-4000 seconds. The default is 60 seconds.
-	//
-	//    * routing.http.drop_invalid_header_fields.enabled - Indicates whether
-	//    HTTP headers with invalid header fields are removed by the load balancer
-	//    (true) or routed to targets (false). The default is false.
 	//
 	//    * routing.http2.enabled - Indicates whether HTTP/2 is enabled. The value
 	//    is true or false. The default is true.
@@ -6749,10 +6643,10 @@ type ModifyListenerInput struct {
 	// The actions for the default rule. The rule must include one forward action
 	// or one or more fixed-response actions.
 	//
-	// If the action type is forward, you specify one or more target groups. The
-	// protocol of the target group must be HTTP or HTTPS for an Application Load
-	// Balancer. The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP
-	// for a Network Load Balancer.
+	// If the action type is forward, you specify a target group. The protocol of
+	// the target group must be HTTP or HTTPS for an Application Load Balancer.
+	// The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP for a
+	// Network Load Balancer.
 	//
 	// [HTTPS listeners] If the action type is authenticate-oidc, you authenticate
 	// users through an identity provider that is OpenID Connect (OIDC) compliant.
@@ -6960,13 +6854,12 @@ type ModifyRuleInput struct {
 	_ struct{} `type:"structure"`
 
 	// The actions. Each rule must include exactly one of the following types of
-	// actions: forward, fixed-response, or redirect, and it must be the last action
-	// to be performed.
+	// actions: forward, fixed-response, or redirect.
 	//
-	// If the action type is forward, you specify one or more target groups. The
-	// protocol of the target group must be HTTP or HTTPS for an Application Load
-	// Balancer. The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP
-	// for a Network Load Balancer.
+	// If the action type is forward, you specify a target group. The protocol of
+	// the target group must be HTTP or HTTPS for an Application Load Balancer.
+	// The protocol of the target group must be TCP, TLS, UDP, or TCP_UDP for a
+	// Network Load Balancer.
 	//
 	// [HTTPS listeners] If the action type is authenticate-oidc, you authenticate
 	// users through an identity provider that is OpenID Connect (OIDC) compliant.
@@ -7151,7 +7044,7 @@ type ModifyTargetGroupInput struct {
 	// target. For Application Load Balancers, the range is 5 to 300 seconds. For
 	// Network Load Balancers, the supported values are 10 or 30 seconds.
 	//
-	// With Network Load Balancers, you can't modify this setting.
+	// If the protocol of the target group is TCP, you can't modify this setting.
 	HealthCheckIntervalSeconds *int64 `min:"5" type:"integer"`
 
 	// [HTTP/HTTPS health checks] The ping path that is the destination for the
@@ -7166,13 +7059,13 @@ type ModifyTargetGroupInput struct {
 	// target group is TCP, TLS, UDP, or TCP_UDP. The TLS, UDP, and TCP_UDP protocols
 	// are not supported for health checks.
 	//
-	// With Network Load Balancers, you can't modify this setting.
+	// If the protocol of the target group is TCP, you can't modify this setting.
 	HealthCheckProtocol *string `type:"string" enum:"ProtocolEnum"`
 
 	// [HTTP/HTTPS health checks] The amount of time, in seconds, during which no
 	// response means a failed health check.
 	//
-	// With Network Load Balancers, you can't modify this setting.
+	// If the protocol of the target group is TCP, you can't modify this setting.
 	HealthCheckTimeoutSeconds *int64 `min:"2" type:"integer"`
 
 	// The number of consecutive health checks successes required before considering
@@ -7182,7 +7075,7 @@ type ModifyTargetGroupInput struct {
 	// [HTTP/HTTPS health checks] The HTTP codes to use when checking for a successful
 	// response from a target.
 	//
-	// With Network Load Balancers, you can't modify this setting.
+	// If the protocol of the target group is TCP, you can't modify this setting.
 	Matcher *Matcher `type:"structure"`
 
 	// The Amazon Resource Name (ARN) of the target group.
@@ -8222,17 +8115,11 @@ type SetSubnetsInput struct {
 	// LoadBalancerArn is a required field
 	LoadBalancerArn *string `type:"string" required:"true"`
 
-	// The IDs of the public subnets. You can specify only one subnet per Availability
-	// Zone. You must specify either subnets or subnet mappings.
+	// The IDs of the public subnets. You must specify subnets from at least two
+	// Availability Zones. You can specify only one subnet per Availability Zone.
+	// You must specify either subnets or subnet mappings.
 	//
-	// [Application Load Balancers] You must specify subnets from at least two Availability
-	// Zones. You cannot specify Elastic IP addresses for your subnets.
-	//
-	// [Network Load Balancers] You can specify subnets from one or more Availability
-	// Zones. If you need static IP addresses for your internet-facing load balancer,
-	// you can specify one Elastic IP address per subnet. For internal load balancers,
-	// you can specify one private IP address per subnet from the IPv4 range of
-	// the subnet.
+	// You cannot specify Elastic IP addresses for your subnets.
 	SubnetMappings []*SubnetMapping `type:"list"`
 
 	// The IDs of the public subnets. You must specify subnets from at least two
@@ -8385,12 +8272,8 @@ func (s *SslPolicy) SetSslProtocols(v []*string) *SslPolicy {
 type SubnetMapping struct {
 	_ struct{} `type:"structure"`
 
-	// [Network Load Balancers] The allocation ID of the Elastic IP address for
-	// an internet-facing load balancer.
+	// [Network Load Balancers] The allocation ID of the Elastic IP address.
 	AllocationId *string `type:"string"`
-
-	// [Network Load Balancers] The private IPv4 address for an internal load balancer.
-	PrivateIPv4Address *string `type:"string"`
 
 	// The ID of the subnet.
 	SubnetId *string `type:"string"`
@@ -8409,12 +8292,6 @@ func (s SubnetMapping) GoString() string {
 // SetAllocationId sets the AllocationId field's value.
 func (s *SubnetMapping) SetAllocationId(v string) *SubnetMapping {
 	s.AllocationId = &v
-	return s
-}
-
-// SetPrivateIPv4Address sets the PrivateIPv4Address field's value.
-func (s *SubnetMapping) SetPrivateIPv4Address(v string) *SubnetMapping {
-	s.PrivateIPv4Address = &v
 	return s
 }
 
@@ -8538,8 +8415,7 @@ type TargetDescription struct {
 	// Id is a required field
 	Id *string `type:"string" required:"true"`
 
-	// The port on which the target is listening. Not used if the target is a Lambda
-	// function.
+	// The port on which the target is listening.
 	Port *int64 `min:"1" type:"integer"`
 }
 
@@ -8622,8 +8498,7 @@ type TargetGroup struct {
 	// The HTTP codes to use when checking for a successful response from a target.
 	Matcher *Matcher `type:"structure"`
 
-	// The port on which the targets are listening. Not used if the target is a
-	// Lambda function.
+	// The port on which the targets are listening.
 	Port *int64 `min:"1" type:"integer"`
 
 	// The protocol to use for routing traffic to the targets.
@@ -8772,10 +8647,6 @@ type TargetGroupAttribute struct {
 	// The following attributes are supported by Application Load Balancers if the
 	// target is not a Lambda function:
 	//
-	//    * load_balancing.algorithm.type - The load balancing algorithm determines
-	//    how the load balancer selects targets when routing requests. The value
-	//    is round_robin or least_outstanding_requests. The default is round_robin.
-	//
 	//    * slow_start.duration_seconds - The time period, in seconds, during which
 	//    a newly registered target receives a linearly increasing share of the
 	//    traffic to the target group. After this time period ends, the target receives
@@ -8835,74 +8706,6 @@ func (s *TargetGroupAttribute) SetValue(v string) *TargetGroupAttribute {
 	return s
 }
 
-// Information about the target group stickiness for a rule.
-type TargetGroupStickinessConfig struct {
-	_ struct{} `type:"structure"`
-
-	// The time period, in seconds, during which requests from a client should be
-	// routed to the same target group. The range is 1-604800 seconds (7 days).
-	DurationSeconds *int64 `type:"integer"`
-
-	// Indicates whether target group stickiness is enabled.
-	Enabled *bool `type:"boolean"`
-}
-
-// String returns the string representation
-func (s TargetGroupStickinessConfig) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s TargetGroupStickinessConfig) GoString() string {
-	return s.String()
-}
-
-// SetDurationSeconds sets the DurationSeconds field's value.
-func (s *TargetGroupStickinessConfig) SetDurationSeconds(v int64) *TargetGroupStickinessConfig {
-	s.DurationSeconds = &v
-	return s
-}
-
-// SetEnabled sets the Enabled field's value.
-func (s *TargetGroupStickinessConfig) SetEnabled(v bool) *TargetGroupStickinessConfig {
-	s.Enabled = &v
-	return s
-}
-
-// Information about how traffic will be distributed between multiple target
-// groups in a forward rule.
-type TargetGroupTuple struct {
-	_ struct{} `type:"structure"`
-
-	// The Amazon Resource Name (ARN) of the target group.
-	TargetGroupArn *string `type:"string"`
-
-	// The weight. The range is 0 to 999.
-	Weight *int64 `type:"integer"`
-}
-
-// String returns the string representation
-func (s TargetGroupTuple) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s TargetGroupTuple) GoString() string {
-	return s.String()
-}
-
-// SetTargetGroupArn sets the TargetGroupArn field's value.
-func (s *TargetGroupTuple) SetTargetGroupArn(v string) *TargetGroupTuple {
-	s.TargetGroupArn = &v
-	return s
-}
-
-// SetWeight sets the Weight field's value.
-func (s *TargetGroupTuple) SetWeight(v int64) *TargetGroupTuple {
-	s.Weight = &v
-	return s
-}
-
 // Information about the current health of a target.
 type TargetHealth struct {
 	_ struct{} `type:"structure"`
@@ -8928,16 +8731,14 @@ type TargetHealth struct {
 	// values:
 	//
 	//    * Target.ResponseCodeMismatch - The health checks did not return an expected
-	//    HTTP code. Applies only to Application Load Balancers.
+	//    HTTP code.
 	//
-	//    * Target.Timeout - The health check requests timed out. Applies only to
-	//    Application Load Balancers.
+	//    * Target.Timeout - The health check requests timed out.
 	//
 	//    * Target.FailedHealthChecks - The load balancer received an error while
 	//    establishing a connection to the target or the target response was malformed.
 	//
 	//    * Elb.InternalError - The health checks failed due to an internal error.
-	//    Applies only to Application Load Balancers.
 	//
 	// If the target state is unused, the reason code can be one of the following
 	// values:
@@ -8949,10 +8750,10 @@ type TargetHealth struct {
 	//    or the target is in an Availability Zone that is not enabled for its load
 	//    balancer.
 	//
-	//    * Target.InvalidState - The target is in the stopped or terminated state.
-	//
 	//    * Target.IpUnusable - The target IP address is reserved for use by a load
 	//    balancer.
+	//
+	//    * Target.InvalidState - The target is in the stopped or terminated state.
 	//
 	// If the target state is draining, the reason code can be the following value:
 	//
@@ -8963,10 +8764,7 @@ type TargetHealth struct {
 	// value:
 	//
 	//    * Target.HealthCheckDisabled - Health checks are disabled for the target
-	//    group. Applies only to Application Load Balancers.
-	//
-	//    * Elb.InternalError - Target health is unavailable due to an internal
-	//    error. Applies only to Network Load Balancers.
+	//    group.
 	Reason *string `type:"string" enum:"TargetHealthReasonEnum"`
 
 	// The state of the target.

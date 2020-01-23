@@ -1807,12 +1807,10 @@ func (c *ELB) DescribeLoadBalancersPagesWithContext(ctx aws.Context, input *Desc
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*DescribeLoadBalancersOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*DescribeLoadBalancersOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
