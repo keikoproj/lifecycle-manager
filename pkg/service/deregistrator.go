@@ -8,51 +8,57 @@ import (
 )
 
 type Deregistrator struct {
-	start                    chan bool
 	targetDeregisteredCount  int
 	classicDeregisteredCount int
+	errors                   chan DeregistrationError
 }
+
+func (d *Deregistrator) AddClassicDeregistration(val int)     { d.classicDeregisteredCount += val }
+func (d *Deregistrator) AddTargetGroupDeregistration(val int) { d.targetDeregisteredCount += val }
 
 type DeregistrationError struct {
 	Error     error
 	Target    string
 	Instances []string
-	Type      string
+	Type      TargetType
 }
 
-func (mgr *Manager) newDeregistrator() {
-	for {
-		select {
-		case <-mgr.deregistrator.start:
-			log.Info("deregistrator starting")
-			mgr.deregistrator.targetDeregisteredCount = 0
-			mgr.deregistrator.classicDeregisteredCount = 0
-			mgr.targets.Range(func(k, v interface{}) bool {
-				var (
-					targets = v.([]*Target)
-				)
-				waitJitter(IterationJitterRangeSeconds)
-				mgr.DeregisterTargets(targets)
-				return true
-			})
-			log.Infof("deregistrator> deregistered %v instances from target groups and %v instances from classic-elbs", mgr.deregistrator.targetDeregisteredCount, mgr.deregistrator.classicDeregisteredCount)
-		}
+func (mgr *Manager) startDeregistrator(d *Deregistrator) {
+	mgr.deregistrationMu.Lock()
+	defer mgr.deregistrationMu.Unlock()
+
+	mgr.targets.Range(func(k, v interface{}) bool {
+		var (
+			targets = v.([]*Target)
+		)
+		waitJitter(IterationJitterRangeSeconds)
+		mgr.DeregisterTargets(targets, d)
+		return true
+	})
+	if d.targetDeregisteredCount == 0 && d.classicDeregisteredCount == 0 {
+		log.Infof("deregistrator> no active targets for deregistration")
+	} else {
+		log.Infof("deregistrator> deregistered %v instances from target groups and %v instances from classic-elbs", d.targetDeregisteredCount, d.classicDeregisteredCount)
 	}
+
 }
 
-func (m *Manager) DeregisterTargets(targets []*Target) {
+func (m *Manager) DeregisterTargets(targets []*Target, d *Deregistrator) {
 	var (
 		elbClient   = m.authenticator.ELBClient
 		elbv2Client = m.authenticator.ELBv2Client
 	)
+
 	for _, target := range targets {
 		mapping := m.GetTargetMapping(target.TargetId)
 		instances := m.GetTargetInstanceIds(target.TargetId)
 		if len(instances) == 0 || len(mapping) == 0 {
 			continue
 		}
+
 		switch target.Type {
 		case TargetTypeClassicELB:
+			log.Infof("deregistrator> deregistering %+v from %v", instances, target.TargetId)
 			err := deregisterInstances(elbClient, target.TargetId, instances)
 			if err != nil {
 				if awsErr, ok := err.(awserr.Error); ok {
@@ -69,15 +75,16 @@ func (m *Manager) DeregisterTargets(targets []*Target) {
 					Error:     err,
 					Target:    target.TargetId,
 					Instances: instances,
-					Type:      TargetTypeClassicELB.String(),
+					Type:      TargetTypeClassicELB,
 				}
-				m.deregisterErrors <- deregistrationErr
+				d.errors <- deregistrationErr
 			}
-			m.deregistrator.classicDeregisteredCount += len(instances)
+			d.AddClassicDeregistration(len(instances))
 			for _, instance := range instances {
 				m.RemoveTargetByInstance(target.TargetId, instance)
 			}
 		case TargetTypeTargetGroup:
+			log.Infof("deregistrator> deregistering %+v from %v", instances, target.TargetId)
 			err := deregisterTargets(elbv2Client, target.TargetId, mapping)
 			if err != nil {
 				if awsErr, ok := err.(awserr.Error); ok {
@@ -94,11 +101,11 @@ func (m *Manager) DeregisterTargets(targets []*Target) {
 					Error:     err,
 					Target:    target.TargetId,
 					Instances: instances,
-					Type:      TargetTypeTargetGroup.String(),
+					Type:      TargetTypeTargetGroup,
 				}
-				m.deregisterErrors <- deregistrationErr
+				d.errors <- deregistrationErr
 			}
-			m.deregistrator.targetDeregisteredCount += len(instances)
+			d.AddTargetGroupDeregistration(len(instances))
 			for _, instance := range instances {
 				m.RemoveTargetByInstance(target.TargetId, instance)
 			}

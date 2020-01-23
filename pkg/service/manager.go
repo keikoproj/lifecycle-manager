@@ -13,28 +13,25 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
+	"github.com/keikoproj/aws-sdk-go-cache/cache"
 
 	"k8s.io/client-go/kubernetes"
 )
 
 // Manager is the main object for lifecycle-manager and holds the state
 type Manager struct {
-	eventStream   chan *sqs.Message
-	authenticator Authenticator
-	context       ManagerContext
-	deregistrator Deregistrator
+	eventStream      chan *sqs.Message
+	authenticator    Authenticator
+	context          ManagerContext
+	deregistrationMu sync.Mutex
 	sync.Mutex
-	workQueue        []*LifecycleEvent
-	targets          *sync.Map
-	waiters          *sync.Map
-	metrics          *MetricsServer
-	deregisterErrors chan DeregistrationError
-	waitErrors       chan error
-	avarageLatency   float64
-	completedEvents  int
-	rejectedEvents   int
-	failedEvents     int
+	workQueue       []*LifecycleEvent
+	targets         *sync.Map
+	metrics         *MetricsServer
+	avarageLatency  float64
+	completedEvents int
+	rejectedEvents  int
+	failedEvents    int
 }
 
 // ManagerContext contain the user input parameters on the current context
@@ -66,18 +63,26 @@ type ScanResult struct {
 
 type Waiter struct {
 	sync.WaitGroup
-	finished chan bool
+	finished               chan bool
+	errors                 chan WaiterError
+	classicWaiterCount     int
+	targetGroupWaiterCount int
+}
+
+func (w *Waiter) IncClassicWaiter()     { w.classicWaiterCount++ }
+func (w *Waiter) DecClassicWaiter()     { w.classicWaiterCount-- }
+func (w *Waiter) IncTargetGroupWaiter() { w.targetGroupWaiterCount++ }
+func (w *Waiter) DecTargetGroupWaiter() { w.targetGroupWaiterCount-- }
+
+type WaiterError struct {
+	Error error
+	Type  TargetType
 }
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
-		eventStream:      make(chan *sqs.Message, 0),
-		workQueue:        make([]*LifecycleEvent, 0),
-		deregisterErrors: make(chan DeregistrationError, 0),
-		waitErrors:       make(chan error, 0),
-		deregistrator: Deregistrator{
-			start: make(chan bool, 0),
-		},
+		eventStream:   make(chan *sqs.Message, 0),
+		workQueue:     make([]*LifecycleEvent, 0),
 		metrics:       &MetricsServer{},
 		targets:       &sync.Map{},
 		authenticator: auth,

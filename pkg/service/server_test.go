@@ -353,7 +353,6 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 	}
 
 	g := New(auth, ctx)
-	go g.newDeregistrator()
 	err := g.handleEvent(event)
 	if err != nil {
 		t.Fatalf("handleEvent: expected error not to have occured, %v", err)
