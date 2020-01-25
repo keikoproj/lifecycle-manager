@@ -31,20 +31,18 @@ const (
 	DescribeInstanceHealthTTL time.Duration = 180 * time.Second
 	DescribeTargetGroupsTTL   time.Duration = 300 * time.Second
 	DescribeLoadBalancersTTL  time.Duration = 300 * time.Second
-	CacheMaxItems             int64         = 1000
-	CacheItemsToPrune         uint32        = 100
+	CacheMaxItems             int64         = 5000
+	CacheItemsToPrune         uint32        = 500
 )
 
 var (
-	localMode        string
-	region           string
-	queueName        string
-	kubectlLocalPath string
-	nodeName         string
-	logLevel         string
-
-	deregisterTargetGroups bool
-
+	localMode                 string
+	region                    string
+	queueName                 string
+	kubectlLocalPath          string
+	nodeName                  string
+	logLevel                  string
+	deregisterTargetGroups    bool
 	drainRetryIntervalSeconds int
 	drainTimeoutSeconds       int
 	pollingIntervalSeconds    int
