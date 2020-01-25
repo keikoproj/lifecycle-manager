@@ -26,10 +26,13 @@ import (
 )
 
 const (
-	DescribeTargetHealthTTL   = 180 * time.Second
-	DescribeInstanceHealthTTL = 180 * time.Second
-	DescribeTargetGroupsTTL   = 300 * time.Second
-	DescribeLoadBalancersTTL  = 300 * time.Second
+	CacheDefaultTTL           time.Duration = time.Second * 0
+	DescribeTargetHealthTTL   time.Duration = 180 * time.Second
+	DescribeInstanceHealthTTL time.Duration = 180 * time.Second
+	DescribeTargetGroupsTTL   time.Duration = 300 * time.Second
+	DescribeLoadBalancersTTL  time.Duration = 300 * time.Second
+	CacheMaxItems             int64         = 1000
+	CacheItemsToPrune         uint32        = 100
 )
 
 var (
@@ -65,7 +68,7 @@ var serveCmd = &cobra.Command{
 		// argument validation
 		validate()
 		log.SetLevel(logLevel)
-		cacheCfg := cache.NewConfig(0 * time.Second)
+		cacheCfg := cache.NewConfig(CacheDefaultTTL, CacheMaxItems, CacheItemsToPrune)
 
 		// prepare auth clients
 		auth := service.Authenticator{

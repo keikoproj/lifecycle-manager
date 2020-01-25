@@ -31,6 +31,9 @@ func (mgr *Manager) startDeregistrator(d *Deregistrator) {
 		var (
 			targets = v.([]*Target)
 		)
+		if len(targets) == 0 {
+			return true
+		}
 		waitJitter(IterationJitterRangeSeconds)
 		mgr.DeregisterTargets(targets, d)
 		return true
@@ -40,7 +43,6 @@ func (mgr *Manager) startDeregistrator(d *Deregistrator) {
 	} else {
 		log.Infof("deregistrator> deregistered %v instances from target groups and %v instances from classic-elbs", d.targetDeregisteredCount, d.classicDeregisteredCount)
 	}
-
 }
 
 func (m *Manager) DeregisterTargets(targets []*Target, d *Deregistrator) {

@@ -76,9 +76,9 @@ github.com/inconshreveable/mousetrap
 github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.7
 github.com/json-iterator/go
-# github.com/karlseguin/ccache v2.0.2+incompatible
+# github.com/karlseguin/ccache v2.0.3+incompatible
 github.com/karlseguin/ccache
-# github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200123011647-d9182b193fe5
+# github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200124200058-ab3c8c94044a
 github.com/keikoproj/aws-sdk-go-cache/cache
 # github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 github.com/keikoproj/inverse-exp-backoff

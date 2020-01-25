@@ -21,17 +21,27 @@ type Config struct {
 	sync.RWMutex
 	caches  *sync.Map
 	metrics *cacheCollector
+	maxSize int64
+	itemsToPrune uint32
 }
 
 const cacheNameFormat = "%v.%v"
 
 // NewConfig returns a cache configuration with the defaultTTL
-func NewConfig(defaultTTL time.Duration) *Config {
+func NewConfig(defaultTTL time.Duration, maxSize int64, itemsToPrune uint32) *Config {
+	if maxSize == 0 {
+		maxSize = 5000
+	}
+	if itemsToPrune == 0 {
+		itemsToPrune = 500
+	}
 	return &Config{
 		DefaultTTL:     defaultTTL,
 		specificTTL:    make(map[string]time.Duration),
 		mutatingCaches: make(map[string]bool),
 		caches:         &sync.Map{},
+		maxSize: maxSize,
+		itemsToPrune: itemsToPrune,
 	}
 }
 
@@ -58,7 +68,7 @@ func (c *Config) FlushCache(serviceName string) {
 			c.Lock()
 			o, _ := c.caches.Load(cacheName)
 			ccacheInstance := o.(*ccache.Cache)
-			c.caches.Store(cacheName, ccache.New(ccache.Configure()))
+			c.caches.Store(cacheName, ccache.New(ccache.Configure().MaxSize(c.maxSize).ItemsToPrune(c.itemsToPrune)))
 			ccacheInstance.Stop()
 			c.Unlock()
 			n := strings.Split(cacheName, ".")
@@ -75,7 +85,7 @@ func (c *Config) FlushOperationCache(serviceName, operationName string) {
 			c.Lock()
 			o, _ := c.caches.Load(cacheName)
 			ccacheInstance := o.(*ccache.Cache)
-			c.caches.Store(cacheName, ccache.New(ccache.Configure()))
+			c.caches.Store(cacheName, ccache.New(ccache.Configure().MaxSize(c.maxSize).ItemsToPrune(c.itemsToPrune)))
 			ccacheInstance.Stop()
 			c.Unlock()
 		}
@@ -105,7 +115,7 @@ func (c *Config) flushCaches(r *request.Request) {
 func (c *Config) getCache(r *request.Request) *ccache.Cache {
 	_, ok := c.caches.Load(cacheName(r))
 	if !ok {
-		cache := ccache.New(ccache.Configure())
+		cache := ccache.New(ccache.Configure().MaxSize(c.maxSize).ItemsToPrune(c.itemsToPrune))
 		c.caches.Store(cacheName(r), cache)
 	}
 	o, _ := c.caches.Load(cacheName(r))

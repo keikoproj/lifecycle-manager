@@ -9,7 +9,7 @@ require (
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
-	github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200123011647-d9182b193fe5
+	github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200124200058-ab3c8c94044a
 	github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/pkg/errors v0.8.1

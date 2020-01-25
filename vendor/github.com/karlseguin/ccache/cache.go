@@ -16,6 +16,7 @@ type Cache struct {
 	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
+	donec       chan struct{}
 }
 
 // Create a new cache with the specified configuration
@@ -26,16 +27,22 @@ func New(config *Configuration) *Cache {
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
-		deletables:    make(chan *Item, config.deleteBuffer),
-		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &bucket{
 			lookup: make(map[string]*Item),
 		}
 	}
-	go c.worker()
+	c.restart()
 	return c
+}
+
+func (c *Cache) ItemCount() int {
+	count := 0
+	for _, b := range c.buckets {
+		count += b.itemCount()
+	}
+	return count
 }
 
 // Get an item from the cache. Returns nil if the item wasn't found.
@@ -119,6 +126,14 @@ func (c *Cache) Clear() {
 // is called are likely to panic
 func (c *Cache) Stop() {
 	close(c.promotables)
+	<-c.donec
+}
+
+func (c *Cache) restart() {
+	c.deletables = make(chan *Item, c.deleteBuffer)
+	c.promotables = make(chan *Item, c.promoteBuffer)
+	c.donec = make(chan struct{})
+	go c.worker()
 }
 
 func (c *Cache) deleteItem(bucket *bucket, item *Item) {
@@ -146,6 +161,8 @@ func (c *Cache) promote(item *Item) {
 }
 
 func (c *Cache) worker() {
+	defer close(c.donec)
+
 	for {
 		select {
 		case item, ok := <-c.promotables:
@@ -177,6 +194,9 @@ func (c *Cache) doDelete(item *Item) {
 		item.promotions = -2
 	} else {
 		c.size -= item.size
+		if c.onDelete != nil {
+			c.onDelete(item)
+		}
 		c.list.Remove(item.element)
 	}
 }
@@ -211,6 +231,9 @@ func (c *Cache) gc() {
 			c.bucket(item.key).delete(item.key)
 			c.size -= item.size
 			c.list.Remove(element)
+			if c.onDelete != nil {
+				c.onDelete(item)
+			}
 			item.promotions = -2
 		}
 		element = prev
