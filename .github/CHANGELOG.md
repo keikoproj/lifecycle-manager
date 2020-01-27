@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4
+
++ More efficient deregistration (#42)
++ Logging improvements (#42)
++ Waiters - use inverse exponential backoff (#42)
++ Error handling improvements (#42)
++ No cache flushing on DeregisterInstances (#42)
+
 ## 0.3.3
 
 + Bugfix: Proceed with drain failure (#37)
