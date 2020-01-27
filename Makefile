@@ -43,10 +43,10 @@ clean:
 	@test ! -e bin/${BIN_NAME} || rm bin/${BIN_NAME}
 
 vtest:
-	go test ./... -v -coverprofile ./coverage.txt
+	go test ./... -timeout 30s -v -coverprofile ./coverage.txt
 	go tool cover -html=./coverage.txt -o cover.html
 
 test:
-	go test ./... -coverprofile ./coverage.txt
+	go test ./... -timeout 30s -coverprofile ./coverage.txt
 	go tool cover -html=./coverage.txt -o cover.html
 

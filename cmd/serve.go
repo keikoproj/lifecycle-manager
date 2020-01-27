@@ -4,11 +4,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
@@ -18,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/keikoproj/aws-sdk-go-cache/cache"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"github.com/keikoproj/lifecycle-manager/pkg/service"
 	"github.com/spf13/cobra"
@@ -27,22 +26,23 @@ import (
 )
 
 const (
-	DescribeTargetHealthTTL   = 180 * time.Second
-	DescribeInstanceHealthTTL = 180 * time.Second
-	DescribeTargetGroupsTTL   = 300 * time.Second
-	DescribeLoadBalancersTTL  = 300 * time.Second
+	CacheDefaultTTL           time.Duration = time.Second * 0
+	DescribeTargetHealthTTL   time.Duration = 180 * time.Second
+	DescribeInstanceHealthTTL time.Duration = 180 * time.Second
+	DescribeTargetGroupsTTL   time.Duration = 300 * time.Second
+	DescribeLoadBalancersTTL  time.Duration = 300 * time.Second
+	CacheMaxItems             int64         = 5000
+	CacheItemsToPrune         uint32        = 500
 )
 
 var (
-	localMode        string
-	region           string
-	queueName        string
-	kubectlLocalPath string
-	nodeName         string
-	logLevel         string
-
-	deregisterTargetGroups bool
-
+	localMode                 string
+	region                    string
+	queueName                 string
+	kubectlLocalPath          string
+	nodeName                  string
+	logLevel                  string
+	deregisterTargetGroups    bool
 	drainRetryIntervalSeconds int
 	drainTimeoutSeconds       int
 	pollingIntervalSeconds    int
@@ -66,7 +66,7 @@ var serveCmd = &cobra.Command{
 		// argument validation
 		validate()
 		log.SetLevel(logLevel)
-		cacheCfg := cache.NewConfig(0 * time.Second)
+		cacheCfg := cache.NewConfig(CacheDefaultTTL, CacheMaxItems, CacheItemsToPrune)
 
 		// prepare auth clients
 		auth := service.Authenticator{
@@ -162,6 +162,7 @@ func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
 	cache.AddCaching(sess, cacheCfg)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetHealth", DescribeTargetHealthTTL)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetGroups", DescribeTargetGroupsTTL)
+	cacheCfg.SetCacheMutating("elasticloadbalancing", "DeregisterTargets", false)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
 		log.Debugf("cache hit => %v, service => %s.%s",
@@ -184,9 +185,10 @@ func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
 	cache.AddCaching(sess, cacheCfg)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeInstanceHealth", DescribeInstanceHealthTTL)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", DescribeLoadBalancersTTL)
+	cacheCfg.SetCacheMutating("elasticloadbalancing", "DeregisterInstancesFromLoadBalancer", false)
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		ctx := r.HTTPRequest.Context()
-		log.Debugf("cached => %v, service => %s.%s",
+		log.Debugf("cache hit => %v, service => %s.%s",
 			cache.IsCacheHit(ctx),
 			r.ClientInfo.ServiceName,
 			r.Operation.Name,

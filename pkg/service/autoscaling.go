@@ -28,7 +28,7 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 		iterationCount++
 		if iterationCount >= maxIterations {
 			// hard limit in case event is not marked completed
-			log.Warnf("heartbeat extended over threshold, instance will be abandoned")
+			log.Warnf("%v> heartbeat extended over threshold, instance will be abandoned", instanceID)
 			event.SetEventCompleted(true)
 		}
 
@@ -36,10 +36,10 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 			return
 		}
 
-		log.Infof("sending heartbeat for %v (%v/%v)", instanceID, iterationCount, maxIterations)
+		log.Infof("%v> sending heartbeat (%v/%v)", instanceID, iterationCount, maxIterations)
 		err := extendLifecycleAction(client, *event)
 		if err != nil {
-			log.Errorf("failed to send heartbeat for event with instance %v: %v", instanceID, err)
+			log.Errorf("%v> failed to send heartbeat for event: %v", instanceID, err)
 			return
 		}
 		time.Sleep(time.Duration(recommendedInterval) * time.Second)
@@ -65,7 +65,7 @@ func getHookHeartbeatInterval(client autoscalingiface.AutoScalingAPI, lifecycleH
 }
 
 func completeLifecycleAction(client autoscalingiface.AutoScalingAPI, event LifecycleEvent, result string) error {
-	log.Infof("setting lifecycle event as completed with result: %v", result)
+	log.Infof("%v> setting lifecycle event as completed with result: %v", event.EC2InstanceID, result)
 	input := &autoscaling.CompleteLifecycleActionInput{
 		AutoScalingGroupName:  aws.String(event.AutoScalingGroupName),
 		InstanceId:            aws.String(event.EC2InstanceID),
@@ -80,7 +80,7 @@ func completeLifecycleAction(client autoscalingiface.AutoScalingAPI, event Lifec
 }
 
 func extendLifecycleAction(client autoscalingiface.AutoScalingAPI, event LifecycleEvent) error {
-	log.Debugf("extending lifecycle event for %v", event.EC2InstanceID)
+	log.Debugf("%v> extending lifecycle event", event.EC2InstanceID)
 	input := &autoscaling.RecordLifecycleActionHeartbeatInput{
 		AutoScalingGroupName: aws.String(event.AutoScalingGroupName),
 		InstanceId:           aws.String(event.EC2InstanceID),

@@ -3,8 +3,8 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 	"math/rand"
+	"time"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 
@@ -51,7 +51,7 @@ const (
 	// EventReasonTargetDeregisterFailed is the reason for a successful drain event
 	EventReasonTargetDeregisterFailed EventReason = "TargetDeregisterFailed"
 	// EventMessageTargetDeregisterFailed is the message for a successful drain event
-	EventMessageTargetDeregisterFailed = "target %v:%v has failed to deregistered from target group %v: %v"
+	EventMessageTargetDeregisterFailed = "target %v has failed to deregistered from target group %v: %v"
 	// EventReasonInstanceDeregisterSucceeded is the reason for a successful target group deregister event
 	EventReasonInstanceDeregisterSucceeded EventReason = "InstanceDeregisterSucceeded"
 	// EventMessageInstanceDeregisterSucceeded is the message for a successful target group deregister event
@@ -59,7 +59,7 @@ const (
 	// EventReasonInstanceDeregisterFailed is the reason for a successful classic elb deregister event
 	EventReasonInstanceDeregisterFailed EventReason = "InstanceDeregisterFailed"
 	// EventMessageInstanceDeregisterFailed is the message for a successful classic elb deregister event
-	EventMessageInstanceDeregisterFailed = "instance %v has failed to deregistered from classic-elb %v: %v"
+	EventMessageInstanceDeregisterFailed = "instance %v has failed to deregister from classic-elb %v: %v"
 )
 
 var (
@@ -97,12 +97,7 @@ func getReasonEventLevel(reason EventReason) string {
 	return "Normal"
 }
 
-func newKubernetesEvent(reason EventReason, msgFields map[string]string, refNodeName string) *v1.Event {
-	var objReference v1.ObjectReference
-	if refNodeName != "" {
-		objReference = v1.ObjectReference{Kind: "Node", Name: refNodeName}
-	}
-
+func newKubernetesEvent(reason EventReason, msgFields map[string]string) *v1.Event {
 	// Marshal as JSON
 	b, err := json.Marshal(msgFields)
 	msgPayload := string(b)
@@ -126,7 +121,6 @@ func newKubernetesEvent(reason EventReason, msgFields map[string]string, refNode
 		LastTimestamp: metav1.Time{
 			Time: time.Now(),
 		},
-		InvolvedObject: objReference,
 	}
 	return event
 }

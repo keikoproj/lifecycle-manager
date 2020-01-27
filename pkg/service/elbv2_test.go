@@ -109,7 +109,7 @@ func Test_DeregisterTargetWaiterAbort(t *testing.T) {
 		arn                 = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
 		instanceID          = "i-1234567890"
 		port          int64 = 32334
-		expectedCalls       = 2
+		expectedCalls       = 1
 	)
 
 	stubber := &stubELBv2{
@@ -179,7 +179,7 @@ func Test_DeregisterTargetWaiterTimeout(t *testing.T) {
 		arn                 = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
 		instanceID          = "i-1234567890"
 		port          int64 = 32334
-		expectedCalls       = 3
+		expectedCalls       = 4
 	)
 
 	stubber := &stubELBv2{
@@ -233,14 +233,13 @@ func Test_DeregisterTargetWaiterFail(t *testing.T) {
 func Test_DeregisterTarget(t *testing.T) {
 	t.Log("Test_DeregisterTarget: should be able to deregister an instance")
 	var (
-		stubber             = &stubELBv2{}
-		arn                 = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
-		instanceID          = "i-1234567890"
-		port          int64 = 32334
-		expectedCalls       = 1
+		stubber       = &stubELBv2{}
+		arn           = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
+		instances     = map[string]int64{"i-1234567890": 32334}
+		expectedCalls = 1
 	)
 
-	err := deregisterTarget(stubber, arn, instanceID, port)
+	err := deregisterTargets(stubber, arn, instances)
 	if err != nil {
 		t.Fatalf("Test_DeregisterInstance: expected error not to have occured, %v", err)
 	}
@@ -253,15 +252,14 @@ func Test_DeregisterTarget(t *testing.T) {
 func Test_DeregisterTargetNotFoundException(t *testing.T) {
 	t.Log("Test_DeregisterTargetNotFoundException: should return error when call fails")
 	var (
-		stubber             = &stubErrorELBv2{}
-		arn                 = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
-		instanceID          = "i-1234567890"
-		port          int64 = 32334
-		expectedCalls       = 1
+		stubber       = &stubErrorELBv2{}
+		arn           = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
+		instances     = map[string]int64{"i-1234567890": 32334}
+		expectedCalls = 1
 	)
 
 	stubber.failHint = elbv2.ErrCodeTargetGroupNotFoundException
-	err := deregisterTarget(stubber, arn, instanceID, port)
+	err := deregisterTargets(stubber, arn, instances)
 	if err == nil {
 		t.Fatalf("Test_DeregisterTargetNotFoundException: expected error not have occured, %v", err)
 	}
@@ -274,15 +272,14 @@ func Test_DeregisterTargetNotFoundException(t *testing.T) {
 func Test_DeregisterTargetInvalidException(t *testing.T) {
 	t.Log("Test_DeregisterTargetInvalidException: should return error when call fails")
 	var (
-		stubber             = &stubErrorELBv2{}
-		arn                 = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
-		instanceID          = "i-1234567890"
-		port          int64 = 32334
-		expectedCalls       = 1
+		stubber       = &stubErrorELBv2{}
+		arn           = "arn:aws:elasticloadbalancing:us-west-2:0000000000:targetgroup/targetgroup-name/some-id"
+		instances     = map[string]int64{"i-1234567890": 32334}
+		expectedCalls = 1
 	)
 
 	stubber.failHint = elbv2.ErrCodeInvalidTargetException
-	err := deregisterTarget(stubber, arn, instanceID, port)
+	err := deregisterTargets(stubber, arn, instances)
 	if err == nil {
 		t.Fatalf("Test_DeregisterTargetInvalidException: expected error not have occured, %v", err)
 	}

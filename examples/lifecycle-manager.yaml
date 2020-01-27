@@ -66,11 +66,10 @@ spec:
           name: lifecycle-manager
           resources:
             limits:
-              cpu: 100m
               memory: 1024Mi
             requests:
               cpu: 100m
-              memory: 100Mi
+              memory: 256Mi
           command:
             - /bin/lifecycle-manager
             - serve

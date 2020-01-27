@@ -11,7 +11,6 @@ import (
 
 func Test_NewEvent(t *testing.T) {
 	t.Log("Test_NewEvent: should be able to get a new kubernetes event")
-	referencedNode := "ip-10-10-10-10"
 	msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, "i-123456789012", "my-load-balancer", "some bad error occurred")
 	msgFields := map[string]string{
 		"ec2InstanceId": "i-123456789012",
@@ -19,14 +18,10 @@ func Test_NewEvent(t *testing.T) {
 		"error":         "some bad error occurred",
 		"details":       msg,
 	}
-	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, referencedNode)
+	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields)
 
 	if event.Reason != string(EventReasonInstanceDeregisterFailed) {
 		t.Fatalf("expected event.Reason to be: %v, got: %v", string(EventReasonInstanceDeregisterFailed), event.Reason)
-	}
-
-	if event.InvolvedObject.Name != referencedNode {
-		t.Fatalf("expected event.InvolvedObject.Name to be: %v, got: %v", referencedNode, event.InvolvedObject.Name)
 	}
 
 	// decode the JSON
@@ -45,7 +40,6 @@ func Test_NewEvent(t *testing.T) {
 func Test_PublishEvent(t *testing.T) {
 	t.Log("Test_PublishEvent: should be able to publish kubernetes events")
 	kubeClient := fake.NewSimpleClientset()
-	referencedNode := "ip-10-10-10-10"
 	msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, "i-123456789012", "my-load-balancer", "some bad error occurred")
 	msgFields := map[string]string{
 		"ec2InstanceId": "i-123456789012",
@@ -53,7 +47,7 @@ func Test_PublishEvent(t *testing.T) {
 		"error":         "some bad error occurred",
 		"details":       msg,
 	}
-	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, referencedNode)
+	event := newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields)
 
 	publishKubernetesEvent(kubeClient, event)
 	expectedEvents := 1

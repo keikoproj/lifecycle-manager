@@ -36,8 +36,6 @@ func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool
 }
 
 func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error {
-	log.Infof("draining node %v", nodeName)
-
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
 	drainCommand := kubectlPath
 

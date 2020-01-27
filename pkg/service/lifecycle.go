@@ -1,92 +1,12 @@
 package service
 
 import (
-	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
-	"github.com/aws/aws-sdk-go/service/elb/elbiface"
-	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/ticketmaster/aws-sdk-go-cache/cache"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 )
-
-type Authenticator struct {
-	ScalingGroupClient autoscalingiface.AutoScalingAPI
-	SQSClient          sqsiface.SQSAPI
-	ELBv2Client        elbv2iface.ELBV2API
-	ELBClient          elbiface.ELBAPI
-	KubernetesClient   kubernetes.Interface
-}
-
-type Manager struct {
-	eventStream     chan *sqs.Message
-	authenticator   Authenticator
-	context         ManagerContext
-	workQueue       []*LifecycleEvent
-	workQueueSync   *sync.Mutex
-	metrics         *MetricsServer
-	avarageLatency  float64
-	completedEvents int
-	rejectedEvents  int
-	failedEvents    int
-}
-
-type MetricsServer struct {
-	Counters map[string]prometheus.Counter
-	Gauges   map[string]prometheus.Gauge
-}
-
-func (m *MetricsServer) AddCounter(idx string, value float64) {
-	if val, ok := m.Counters[idx]; ok {
-		val.Add(value)
-	}
-}
-
-func (m *MetricsServer) SetGauge(idx string, value float64) {
-	if val, ok := m.Gauges[idx]; ok {
-		val.Set(value)
-	}
-}
-
-func (m *MetricsServer) IncGauge(idx string) {
-	if val, ok := m.Gauges[idx]; ok {
-		val.Inc()
-	}
-}
-
-func (m *MetricsServer) DecGauge(idx string) {
-	if val, ok := m.Gauges[idx]; ok {
-		val.Dec()
-	}
-}
-
-func New(auth Authenticator, ctx ManagerContext) *Manager {
-	return &Manager{
-		eventStream:   make(chan *sqs.Message, 0),
-		workQueue:     make([]*LifecycleEvent, 0),
-		metrics:       &MetricsServer{},
-		workQueueSync: &sync.Mutex{},
-		authenticator: auth,
-		context:       ctx,
-	}
-}
-
-type ManagerContext struct {
-	CacheConfig               *cache.Config
-	KubectlLocalPath          string
-	QueueName                 string
-	Region                    string
-	DrainTimeoutSeconds       int64
-	DrainRetryIntervalSeconds int64
-	PollingIntervalSeconds    int64
-	WithDeregister            bool
-}
 
 type LifecycleEvent struct {
 	LifecycleHookName    string `json:"LifecycleHookName"`

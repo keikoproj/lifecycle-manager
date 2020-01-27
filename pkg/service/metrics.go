@@ -32,6 +32,11 @@ const (
 	RejectedEventsTotalMetric         = "rejected_events_total"
 )
 
+type MetricsServer struct {
+	Counters map[string]prometheus.Counter
+	Gauges   map[string]prometheus.Gauge
+}
+
 func (m *MetricsServer) Start() {
 	m.Gauges = make(map[string]prometheus.Gauge, 0)
 	m.Counters = make(map[string]prometheus.Counter, 0)
@@ -86,4 +91,28 @@ func (m *MetricsServer) Start() {
 	}
 
 	log.Fatal(http.ListenAndServe(MetricsPort, nil))
+}
+
+func (m *MetricsServer) AddCounter(idx string, value float64) {
+	if val, ok := m.Counters[idx]; ok {
+		val.Add(value)
+	}
+}
+
+func (m *MetricsServer) SetGauge(idx string, value float64) {
+	if val, ok := m.Gauges[idx]; ok {
+		val.Set(value)
+	}
+}
+
+func (m *MetricsServer) IncGauge(idx string) {
+	if val, ok := m.Gauges[idx]; ok {
+		val.Inc()
+	}
+}
+
+func (m *MetricsServer) DecGauge(idx string) {
+	if val, ok := m.Gauges[idx]; ok {
+		val.Dec()
+	}
 }
