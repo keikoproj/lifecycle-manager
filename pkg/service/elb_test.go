@@ -101,11 +101,11 @@ func Test_DeregisterInstance(t *testing.T) {
 	var (
 		stubber       = &stubELB{}
 		elbName       = "some-load-balancer"
-		instanceID    = "i-1234567890"
+		instances     = []string{"i-1234567890"}
 		expectedCalls = 1
 	)
 
-	err := deregisterInstance(stubber, elbName, instanceID)
+	err := deregisterInstances(stubber, elbName, instances)
 	if err != nil {
 		t.Fatalf("Test_DeregisterInstance: expected error not to have occured, %v", err)
 	}
@@ -120,12 +120,12 @@ func Test_DeregisterNotFoundException(t *testing.T) {
 	var (
 		stubber       = &stubErrorELB{}
 		elbName       = "some-load-balancer"
-		instanceID    = "i-1234567890"
+		instances     = []string{"i-1234567890"}
 		expectedCalls = 1
 	)
 
 	stubber.failHint = elb.ErrCodeAccessPointNotFoundException
-	err := deregisterInstance(stubber, elbName, instanceID)
+	err := deregisterInstances(stubber, elbName, instances)
 	if err == nil {
 		t.Fatalf("Test_DeregisterInstance: expected error to have occured, got: %v", err)
 	}
@@ -140,12 +140,12 @@ func Test_DeregisterInvalidException(t *testing.T) {
 	var (
 		stubber       = &stubErrorELB{}
 		elbName       = "some-load-balancer"
-		instanceID    = "i-1234567890"
+		instances     = []string{"i-1234567890"}
 		expectedCalls = 1
 	)
 
 	stubber.failHint = elb.ErrCodeInvalidEndPointException
-	err := deregisterInstance(stubber, elbName, instanceID)
+	err := deregisterInstances(stubber, elbName, instances)
 	if err == nil {
 		t.Fatalf("Test_DeregisterInstance: expected error to have occured, got: %v", err)
 	}
@@ -161,7 +161,7 @@ func Test_DeregisterWaiterAbort(t *testing.T) {
 		event         = &LifecycleEvent{}
 		elbName       = "some-load-balancer"
 		instanceID    = "i-1234567890"
-		expectedCalls = 2
+		expectedCalls = 1
 	)
 
 	stubber := &stubELB{
@@ -241,7 +241,7 @@ func Test_DeregisterWaiterTimeout(t *testing.T) {
 		event         = &LifecycleEvent{}
 		elbName       = "some-load-balancer"
 		instanceID    = "i-1234567890"
-		expectedCalls = 3
+		expectedCalls = 4
 	)
 
 	stubber := &stubELB{

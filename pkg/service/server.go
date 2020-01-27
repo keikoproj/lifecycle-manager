@@ -3,9 +3,8 @@ package service
 import (
 	"fmt"
 	"math/rand"
-	"reflect"
 	"runtime"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -34,13 +33,15 @@ var (
 	// ThreadJitterRangeSeconds configures the jitter range in seconds 0 to N per handler goroutine
 	ThreadJitterRangeSeconds = 30.0
 	// IterationJitterRangeSeconds configures the jitter range in seconds 0 to N per call iteration goroutine
-	IterationJitterRangeSeconds = 1.0
+	IterationJitterRangeSeconds = 1.5
 	// NodeAgeCacheTTL defines a node age in minutes for which all caches are flushed
 	NodeAgeCacheTTL = 90
-	// WaiterDelayIntervalSeconds defines the default polling interval for waiters
-	WaiterDelayIntervalSeconds int64 = 30
+	// WaiterDelayInterval defines the default polling interval for waiters
+	WaiterDelayInterval time.Duration = 30 * time.Second
+	// WaiterMinDelay is the minimum delay for waiter inverse exponential backoff
+	WaiterMinDelay time.Duration = 3 * time.Minute
 	// WaiterMaxAttempts defines the maximum attempts a waiter will make before timing out
-	WaiterMaxAttempts = 500
+	WaiterMaxAttempts uint32 = 120
 )
 
 // Start starts the lifecycle-manager service
@@ -62,9 +63,6 @@ func (mgr *Manager) Start() {
 	// start metrics server
 	log.Infof("starting metrics server on %v%v", MetricsEndpoint, MetricsPort)
 	go metrics.Start()
-
-	// create a poller goroutine that reads from sqs and posts to channel
-	log.Info("spawning sqs poller")
 	go mgr.newPoller()
 
 	// restore in-progress events if crashed
@@ -97,7 +95,7 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 	// add event to work queue
 	mgr.AddEvent(event)
 
-	log.Infof("received termination event for instance/%v", event.EC2InstanceID)
+	log.Infof("%v> received termination event", event.EC2InstanceID)
 
 	// handle event
 	err := mgr.handleEvent(event)
@@ -109,137 +107,6 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 	mgr.CompleteEvent(event)
 
 	return nil
-}
-
-func (mgr *Manager) AddEvent(event *LifecycleEvent) {
-	var (
-		metrics   = mgr.metrics
-		queueSync = mgr.workQueueSync
-	)
-	queueSync.Lock()
-	event.SetEventTimeStarted(time.Now())
-	metrics.IncGauge(TerminatingInstancesCountMetric)
-	mgr.workQueue = append(mgr.workQueue, event)
-	queueSync.Unlock()
-}
-
-func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
-	var (
-		queue      = mgr.authenticator.SQSClient
-		metrics    = mgr.metrics
-		kubeClient = mgr.authenticator.KubernetesClient
-		asgClient  = mgr.authenticator.ScalingGroupClient
-		url        = event.queueURL
-		t          = time.Since(event.startTime).Seconds()
-	)
-
-	if mgr.avarageLatency == 0 {
-		mgr.avarageLatency = t
-	} else {
-		mgr.avarageLatency = (mgr.avarageLatency + t) / 2
-	}
-
-	newQueue := make([]*LifecycleEvent, 0)
-	for _, e := range mgr.workQueue {
-		if reflect.DeepEqual(event, e) {
-			// found event in work queue
-			log.Infof("event %v completed processing", event.RequestID)
-			event.SetEventCompleted(true)
-
-			err := deleteMessage(queue, url, event.receiptHandle)
-			if err != nil {
-				log.Errorf("failed to delete message: %v", err)
-			}
-			err = completeLifecycleAction(asgClient, *event, ContinueAction)
-			if err != nil {
-				log.Errorf("failed to complete lifecycle action: %v", err)
-			}
-			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID, t)
-			msgFields := map[string]string{
-				"eventID":       event.RequestID,
-				"ec2InstanceId": event.EC2InstanceID,
-				"asgName":       event.AutoScalingGroupName,
-				"details":       msg,
-			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msgFields, event.referencedNode.Name))
-			metrics.AddCounter(SuccessfulEventsTotalMetric, 1)
-		} else {
-			newQueue = append(newQueue, e)
-		}
-	}
-	mgr.workQueueSync.Lock()
-	mgr.workQueue = newQueue
-	mgr.completedEvents++
-	metrics.DecGauge(TerminatingInstancesCountMetric)
-	metrics.SetGauge(AverageDurationSecondsMetric, mgr.avarageLatency)
-	log.Infof("event %v for instance %v completed after %vs", event.RequestID, event.EC2InstanceID, t)
-	mgr.workQueueSync.Unlock()
-}
-
-func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
-	var (
-		auth               = mgr.authenticator
-		kubeClient         = auth.KubernetesClient
-		queue              = auth.SQSClient
-		metrics            = mgr.metrics
-		scalingGroupClient = auth.ScalingGroupClient
-		url                = event.queueURL
-		t                  = time.Since(event.startTime).Seconds()
-	)
-	log.Errorf("event %v has failed processing after %vs: %v", event.RequestID, t, err)
-	mgr.failedEvents++
-	metrics.AddCounter(FailedEventsTotalMetric, 1)
-	event.SetEventCompleted(true)
-	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       msg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msgFields, event.referencedNode.Name))
-
-	if abandon {
-		log.Warnf("abandoning instance %v", event.EC2InstanceID)
-		err := completeLifecycleAction(scalingGroupClient, *event, AbandonAction)
-		if err != nil {
-			log.Errorf("completeLifecycleAction Failed, %s", err)
-		}
-	}
-
-	if reflect.DeepEqual(event, LifecycleEvent{}) {
-		log.Errorf("event failed: invalid message: %v", err)
-		return
-	}
-
-	err = deleteMessage(queue, url, event.receiptHandle)
-	if err != nil {
-		log.Errorf("event failed: failed to delete message: %v", err)
-	}
-
-}
-
-func (mgr *Manager) RejectEvent(err error, event *LifecycleEvent) {
-	var (
-		metrics = mgr.metrics
-		auth    = mgr.authenticator
-		queue   = auth.SQSClient
-		url     = event.queueURL
-	)
-
-	log.Debugf("event %v has been rejected for processing: %v", event.RequestID, err)
-	mgr.rejectedEvents++
-	metrics.AddCounter(RejectedEventsTotalMetric, 1)
-
-	if reflect.DeepEqual(event, LifecycleEvent{}) {
-		log.Errorf("event failed: invalid message: %v", err)
-		return
-	}
-
-	err = deleteMessage(queue, url, event.receiptHandle)
-	if err != nil {
-		log.Errorf("failed to delete message: %v", err)
-	}
 }
 
 func (mgr *Manager) newPoller() {
@@ -334,7 +201,7 @@ func (mgr *Manager) newWorker(message *sqs.Message) {
 		"asgName":       event.AutoScalingGroupName,
 		"details":       msg,
 	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msgFields, event.referencedNode.Name))
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msgFields))
 
 	err = mgr.Process(event)
 	if err != nil {
@@ -353,9 +220,13 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 		retryInterval = ctx.DrainRetryIntervalSeconds
 		successMsg    = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
 	)
+	metrics.IncGauge(DrainingInstancesCountMetric)
+	defer metrics.DecGauge(DrainingInstancesCountMetric)
 
+	log.Infof("%v> draining node/%v", event.EC2InstanceID, event.referencedNode.Name)
 	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval)
 	if err != nil {
+		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
 		msgFields := map[string]string{
 			"eventID":       event.RequestID,
@@ -363,10 +234,10 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 			"asgName":       event.AutoScalingGroupName,
 			"details":       failMsg,
 		}
-		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, msgFields, event.referencedNode.Name))
+		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, msgFields))
 		return err
 	}
-	log.Infof("completed drain for node %v", event.referencedNode.Name)
+	log.Infof("%v> completed drain for node/%v", event.EC2InstanceID, event.referencedNode.Name)
 	event.SetDrainCompleted(true)
 	metrics.AddCounter(SuccessfulNodeDrainTotalMetric, 1)
 
@@ -376,56 +247,28 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 		"asgName":       event.AutoScalingGroupName,
 		"details":       successMsg,
 	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, msgFields, event.referencedNode.Name))
+	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, msgFields))
 	return nil
 }
 
-func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
+func (mgr *Manager) scanMembership(event *LifecycleEvent) (*ScanResult, error) {
 	var (
-		kubeClient          = mgr.authenticator.KubernetesClient
 		elbv2Client         = mgr.authenticator.ELBv2Client
 		elbClient           = mgr.authenticator.ELBClient
 		instanceID          = event.EC2InstanceID
-		ctx                 = &mgr.context
-		metrics             = mgr.metrics
-		node                = event.referencedNode
-		wg                  sync.WaitGroup
-		finished            = make(chan bool, 1)
 		activeTargetGroups  = make(map[string]int64)
 		activeLoadBalancers = make([]string, 0)
+		scanResult          = &ScanResult{}
 	)
-
-	if !ctx.WithDeregister {
-		return nil
-	}
-
-	// sleep for random jitter per goroutine
-	waitJitter(ThreadJitterRangeSeconds)
-
-	// add exclusion label
-	log.Debugf("excluding node %v from load balancers", node.Name)
-	err := labelNode(ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now().UTC()
-	nodeCreationTime := node.CreationTimestamp.UTC()
-	nodeAge := int(now.Sub(nodeCreationTime).Minutes())
-	if nodeAge <= NodeAgeCacheTTL {
-		log.Warnf("Node younger than %vm was terminated, flushing caches", NodeAgeCacheTTL)
-		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeTargetHealth")
-		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeInstanceHealth")
-	}
 
 	// get all target groups
 	targetGroups := []*elbv2.TargetGroup{}
-	err = elbv2Client.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
+	err := elbv2Client.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
 		targetGroups = append(targetGroups, page.TargetGroups...)
 		return page.NextMarker != nil
 	})
 	if err != nil {
-		return err
+		return scanResult, err
 	}
 
 	// get all classic elbs
@@ -435,159 +278,99 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		return page.NextMarker != nil
 	})
 	if err != nil {
-		return err
+		return scanResult, err
 	}
 
-	log.Infof("checking targetgroup/elb membership for %v", instanceID)
+	log.Infof("%v> checking targetgroup/elb membership", instanceID)
 	// find instance in target groups
 	for i, tg := range targetGroups {
 		arn := aws.StringValue(tg.TargetGroupArn)
 		// check each target group for matches
 		waitJitter(IterationJitterRangeSeconds)
-		log.Debugf("checking membership of %v on %v (%v/%v)", instanceID, arn, i, len(targetGroups))
+		log.Debugf("%v> checking membership in %v (%v/%v)", instanceID, arn, i, len(targetGroups))
 		found, port, err := findInstanceInTargetGroup(elbv2Client, arn, instanceID)
 		if err != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() == elbv2.ErrCodeTargetGroupNotFoundException {
-					log.Warnf("target group %v not found, skipping", arn)
+					log.Warnf("%v> target group %v not found, skipping", instanceID, arn)
 					continue
 				}
 			}
-			return err
+			return scanResult, err
 		}
 
 		if !found {
 			continue
 		}
 		activeTargetGroups[arn] = port
+		mgr.AddTargetByInstance(arn, mgr.NewTarget(arn, instanceID, port, TargetTypeTargetGroup))
 	}
+	scanResult.ActiveTargetGroups = activeTargetGroups
 
 	// find instance in classic elbs
 	for i, desc := range elbDescriptions {
 		elbName := aws.StringValue(desc.LoadBalancerName)
 		// check each target group for matches
 		waitJitter(IterationJitterRangeSeconds)
-		log.Debugf("checking membership of %v on %v (%v/%v)", instanceID, elbName, i, len(elbDescriptions))
+		log.Debugf("%v> checking membership in %v (%v/%v)", instanceID, elbName, i, len(elbDescriptions))
 		found, err := findInstanceInClassicBalancer(elbClient, elbName, instanceID)
 		if err != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awsErr.Code() == elb.ErrCodeAccessPointNotFoundException {
-					log.Warnf("classic-elb %v not found, skipping", elbName)
+					log.Warnf("%v> classic-elb %v not found, skipping", instanceID, elbName)
 					continue
 				}
 			}
-			return err
+			return scanResult, err
 		}
 
 		if !found {
 			continue
 		}
+		mgr.AddTargetByInstance(elbName, mgr.NewTarget(elbName, instanceID, 0, TargetTypeClassicELB))
 		activeLoadBalancers = append(activeLoadBalancers, elbName)
 	}
+	scanResult.ActiveLoadBalancers = activeLoadBalancers
 
-	// create goroutine per target group with target match
-	workQueueLength := len(activeTargetGroups) + len(activeLoadBalancers)
-	wg.Add(workQueueLength)
-	errChannel := make(chan error, workQueueLength*2)
+	log.Infof("%v> found %v target groups & %v classic-elb", instanceID, len(activeTargetGroups), len(elbDescriptions))
+	return scanResult, nil
+}
 
-	log.Infof("found %v target groups & %v classic-elb for instance %v", len(activeTargetGroups), len(elbDescriptions), instanceID)
+func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *ScanResult, waiter *Waiter) {
+	var (
+		kubeClient      = mgr.authenticator.KubernetesClient
+		elbv2Client     = mgr.authenticator.ELBv2Client
+		elbClient       = mgr.authenticator.ELBClient
+		instanceID      = event.EC2InstanceID
+		metrics         = mgr.metrics
+		workQueueLength = len(scanResult.ActiveTargetGroups) + len(scanResult.ActiveLoadBalancers)
+	)
 
-	log.Infof("starting deregistration for %v", instanceID)
-	// handle classic load balancers deregistration
-	deregisteredLoadBalancers := []string{}
-	for i, elbName := range activeLoadBalancers {
-
-		if event.eventCompleted {
-			return errors.New("event finished execution during deregistration")
-		}
-
-		// sleep for random jitter per iteration
-		waitJitter(IterationJitterRangeSeconds)
-		log.Debugf("deregistering %v from %v (%v/%v)", instanceID, elbName, i+1, len(activeTargetGroups))
-		err = deregisterInstance(elbClient, elbName, instanceID)
-		if err != nil {
-			if awsErr, ok := err.(awserr.Error); ok {
-				if awsErr.Code() == elb.ErrCodeAccessPointNotFoundException {
-					log.Warnf("ELB %v not found, skipping", elbName)
-					continue
-				} else if awsErr.Code() == elb.ErrCodeInvalidEndPointException {
-					log.Warnf("ELB target %v not found in %v, skipping", instanceID, elbName)
-					continue
-				}
-			}
-			log.Errorf("instance %v deregistration failed: %v", instanceID, err)
-			errChannel <- err
-			msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, instanceID, elbName, err)
-			msgFields := map[string]string{
-				"elbName":       elbName,
-				"ec2InstanceId": instanceID,
-				"elbType":       "classic-elb",
-				"details":       msg,
-			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields, event.referencedNode.Name))
-			continue
-		}
-		deregisteredLoadBalancers = append(deregisteredLoadBalancers, elbName)
-	}
-
-	// handle v2 load balancers deregistration
-	deregisteredTargetGroups := map[string]int64{}
-	currentDeregistering := 0
-	for arn, port := range activeTargetGroups {
-
-		if event.eventCompleted {
-			return errors.New("event finished execution during deregistration")
-		}
-
-		currentDeregistering++
-		// sleep for random jitter per iteration
-		waitJitter(IterationJitterRangeSeconds)
-		log.Debugf("deregistering %v from %v (%v/%v)", instanceID, arn, currentDeregistering, len(activeTargetGroups))
-		err = deregisterTarget(elbv2Client, arn, instanceID, port)
-		if err != nil {
-			if awsErr, ok := err.(awserr.Error); ok {
-				if awsErr.Code() == elbv2.ErrCodeTargetGroupNotFoundException {
-					log.Warnf("target group %v not found, skipping", arn)
-					continue
-				} else if awsErr.Code() == elbv2.ErrCodeInvalidTargetException {
-					log.Warnf("target %v not found in target group %v, skipping", instanceID, arn)
-					continue
-				}
-			}
-			log.Errorf("target %v deregistration failed: %v", instanceID, err)
-			errChannel <- err
-			msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, instanceID, port, arn, err)
-			msgFields := map[string]string{
-				"port":          fmt.Sprintf("%d", port),
-				"targetGroup":   arn,
-				"ec2InstanceId": instanceID,
-				"elbType":       "alb",
-				"details":       msg,
-			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterFailed, msgFields, event.referencedNode.Name))
-			continue
-		}
-		deregisteredTargetGroups[arn] = port
-	}
-
-	log.Infof("starting waiters for %v", instanceID)
+	waiter.Add(workQueueLength)
 	// spawn waiters for classic elb
-	for _, elbName := range deregisteredLoadBalancers {
+	for _, elbName := range scanResult.ActiveLoadBalancers {
 		// sleep for random jitter per waiter
 		waitJitter(IterationJitterRangeSeconds)
 		go func(elbName, instance string) {
-			defer wg.Done()
+			waiter.IncClassicWaiter()
+			defer waiter.DecClassicWaiter()
+			defer waiter.Done()
+
 			// wait for deregister/drain
-			log.Debugf("starting elb-drain waiter for %v in classic-elb %v", instance, elbName)
-			err = waitForDeregisterInstance(event, elbClient, elbName, instance)
+			log.Debugf("%v> starting classic-elb waiter for %v", instance, elbName)
+			err := waitForDeregisterInstance(event, elbClient, elbName, instance)
 			if err != nil {
 				if awsErr, ok := err.(awserr.Error); ok {
 					if awsErr.Code() == elb.ErrCodeAccessPointNotFoundException {
-						log.Warnf("ELB %v not found, skipping", elbName)
+						log.Warnf("%v> classic-elb %v not found, skipping", instance, elbName)
 						return
 					}
 				}
-				errChannel <- err
+				waiterErr := WaiterError{
+					Error: err,
+					Type:  TargetTypeClassicELB,
+				}
+				waiter.errors <- waiterErr
 				return
 			}
 
@@ -599,27 +382,34 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 				"elbType":       "classic-elb",
 				"details":       msg,
 			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterSucceeded, msgFields, event.referencedNode.Name))
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterSucceeded, msgFields))
+			metrics.AddCounter(SuccessfulLBDeregisterTotalMetric, 1)
 		}(elbName, instanceID)
 	}
 
 	// spawn waiters for target groups
-	for arn, port := range deregisteredTargetGroups {
+	for arn, port := range scanResult.ActiveTargetGroups {
 		// sleep for random jitter per waiter
 		waitJitter(IterationJitterRangeSeconds)
 		go func(activeARN, instance string, activePort int64) {
-			defer wg.Done()
+			waiter.IncTargetGroupWaiter()
+			defer waiter.DecTargetGroupWaiter()
+			defer waiter.Done()
 			// wait for deregister/drain
-			log.Debugf("starting alb-drain waiter for %v in target-group %v", instance, activeARN)
-			err = waitForDeregisterTarget(event, elbv2Client, activeARN, instance, activePort)
+			log.Debugf("%v> starting target group waiter for %v", instance, activeARN)
+			err := waitForDeregisterTarget(event, elbv2Client, activeARN, instance, activePort)
 			if err != nil {
 				if awsErr, ok := err.(awserr.Error); ok {
 					if awsErr.Code() == elbv2.ErrCodeTargetGroupNotFoundException {
-						log.Warnf("target group %v not found, skipping", arn)
+						log.Warnf("%v> target group %v not found, skipping", instance, activeARN)
 						return
 					}
 				}
-				errChannel <- err
+				waiterErr := WaiterError{
+					Error: err,
+					Type:  TargetTypeTargetGroup,
+				}
+				waiter.errors <- waiterErr
 				return
 			}
 
@@ -632,22 +422,126 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 				"elbType":       "alb",
 				"details":       msg,
 			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterSucceeded, msgFields, event.referencedNode.Name))
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonTargetDeregisterSucceeded, msgFields))
+			metrics.AddCounter(SuccessfulLBDeregisterTotalMetric, 1)
 		}(arn, instanceID, port)
 	}
 
-	// wait indefinitely for goroutines to complete
 	go func() {
-		wg.Wait()
-		close(finished)
+		for {
+			log.Infof("%v> there are %v pending classic-elb waiters", event.EC2InstanceID, waiter.classicWaiterCount)
+			log.Infof("%v> there are %v pending target-group waiters", event.EC2InstanceID, waiter.targetGroupWaiterCount)
+			time.Sleep(60 * time.Second)
+
+			select {
+			case <-waiter.finished:
+				return
+			default:
+			}
+		}
 	}()
 
-	var errs error
-	select {
-	case <-finished:
-	case err := <-errChannel:
-		if err != nil {
-			errs = errors.Wrap(err, "failed to process alb-drain: ")
+	go func() {
+		waiter.Wait()
+		close(waiter.finished)
+	}()
+}
+
+func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
+	var (
+		instanceID = event.EC2InstanceID
+		ctx        = &mgr.context
+		metrics    = mgr.metrics
+		node       = event.referencedNode
+		kubeClient = mgr.authenticator.KubernetesClient
+		errs       error
+		isFinished bool
+	)
+
+	if !ctx.WithDeregister {
+		return nil
+	}
+
+	metrics.IncGauge(DeregisteringInstancesCountMetric)
+	defer metrics.DecGauge(DeregisteringInstancesCountMetric)
+
+	waitJitter(ThreadJitterRangeSeconds)
+	log.Infof("%v> starting load balancer drain worker", instanceID)
+
+	// add exclusion label
+	log.Debugf("%v> excluding node %v from load balancers", instanceID, node.Name)
+	err := labelNode(ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	nodeCreationTime := node.CreationTimestamp.UTC()
+	nodeAge := int(now.Sub(nodeCreationTime).Minutes())
+	if nodeAge <= NodeAgeCacheTTL {
+		log.Warnf("%v> node younger than %vm was terminated, flushing caches", instanceID, NodeAgeCacheTTL)
+		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeTargetHealth")
+		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeInstanceHealth")
+	}
+
+	// scan and update targets
+	log.Infof("%v> scanner starting", instanceID)
+	scanResults, err := mgr.scanMembership(event)
+	if err != nil {
+		return err
+	}
+
+	// trigger deregistrator to start scanning
+	log.Infof("%v> queuing deregistrator", instanceID)
+	deregistrator := &Deregistrator{
+		errors: make(chan DeregistrationError, 0),
+	}
+	go mgr.startDeregistrator(deregistrator)
+
+	// create waiters
+	log.Infof("%v> queuing waiters", instanceID)
+	waiter := &Waiter{
+		finished: make(chan bool),
+		errors:   make(chan WaiterError, 0),
+	}
+	go mgr.executeDeregisterWaiters(event, scanResults, waiter)
+
+	for {
+
+		if isFinished {
+			break
+		}
+
+		select {
+		case <-waiter.finished:
+			isFinished = true
+		case err := <-deregistrator.errors:
+			var msgFields map[string]string
+			switch err.Type {
+			case TargetTypeClassicELB:
+				msg := fmt.Sprintf(EventMessageInstanceDeregisterFailed, err.Instances, err.Target, err)
+				msgFields = map[string]string{
+					"elbName":       err.Target,
+					"ec2InstanceId": strings.Join(err.Instances, ","),
+					"elbType":       TargetTypeClassicELB.String(),
+					"details":       msg,
+				}
+			case TargetTypeTargetGroup:
+				msg := fmt.Sprintf(EventMessageTargetDeregisterFailed, err.Instances, err.Target, err)
+				msgFields = map[string]string{
+					"targetGroup":   err.Target,
+					"ec2InstanceId": strings.Join(err.Instances, ","),
+					"elbType":       TargetTypeTargetGroup.String(),
+					"details":       msg,
+				}
+			}
+			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonInstanceDeregisterFailed, msgFields))
+			errs = errors.Wrap(err.Error, "deregister failed")
+			metrics.AddCounter(FailedLBDeregisterTotalMetric, 1)
+		case err := <-waiter.errors:
+			if err.Error != nil {
+				errs = errors.Wrap(err.Error, "waiter failed")
+			}
 		}
 	}
 
@@ -655,8 +549,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		return errs
 	}
 
-	log.Debugf("successfully executed all drainLoadbalancerTarget goroutines")
-	metrics.AddCounter(SuccessfulLBDeregisterTotalMetric, 1)
+	log.Debugf("%v> successfully executed all drainLoadbalancerTarget goroutines", instanceID)
 	event.SetDeregisterCompleted(true)
 	return nil
 }
@@ -664,7 +557,7 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	var (
 		asgClient = mgr.authenticator.ScalingGroupClient
-		metrics   = mgr.metrics
+		errs      error
 	)
 
 	// send heartbeat at intervals
@@ -673,41 +566,35 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	// Annotate node with InProgressAnnotationKey = EventBody for resuming in case of crash
 	storeMessage, err := serializeMessage(event.message)
 	if err != nil {
-		log.Errorf("failed to serialize message for storage, event cannot be restored")
+		log.Errorf("%v> failed to serialize message for storage, event cannot be restored", event.EC2InstanceID)
 	} else {
 		annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, InProgressAnnotationKey, string(storeMessage))
 	}
 
 	// node drain
-	metrics.IncGauge(DrainingInstancesCountMetric)
 	err = mgr.drainNodeTarget(event)
 	if err != nil {
-		metrics.DecGauge(DrainingInstancesCountMetric)
-		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
+		errs = errors.Wrap(err, "failed to drain node")
 	}
-	metrics.DecGauge(DrainingInstancesCountMetric)
 
 	// alb-drain action
-	metrics.IncGauge(DeregisteringInstancesCountMetric)
 	err = mgr.drainLoadbalancerTarget(event)
 	if err != nil {
-		metrics.DecGauge(DeregisteringInstancesCountMetric)
-		metrics.AddCounter(FailedLBDeregisterTotalMetric, 1)
-	}
-	metrics.DecGauge(DeregisteringInstancesCountMetric)
-
-	if err != nil {
-		return err
+		errs = errors.Wrap(err, "failed to deregister load balancers")
 	}
 
 	// clear the state annotation once processing is ended
 	annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, InProgressAnnotationKey, "")
 
+	if errs != nil {
+		return errs
+	}
+
 	return nil
 }
 
 func waitJitter(max float64) {
-	min := 0.3
+	min := 0.5
 	rand.Seed(time.Now().UnixNano())
 	r := min + rand.Float64()*(max-min)
 	log.Debugf("adding jitter of %v seconds to waiter\n", r)

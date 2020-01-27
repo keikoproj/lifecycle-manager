@@ -15,21 +15,33 @@ import (
 )
 
 type Config struct {
-	DefaultTTL  time.Duration
-	specificTTL map[string]time.Duration
+	DefaultTTL     time.Duration
+	specificTTL    map[string]time.Duration
+	mutatingCaches map[string]bool
 	sync.RWMutex
 	caches  *sync.Map
 	metrics *cacheCollector
+	maxSize int64
+	itemsToPrune uint32
 }
 
 const cacheNameFormat = "%v.%v"
 
 // NewConfig returns a cache configuration with the defaultTTL
-func NewConfig(defaultTTL time.Duration) *Config {
+func NewConfig(defaultTTL time.Duration, maxSize int64, itemsToPrune uint32) *Config {
+	if maxSize == 0 {
+		maxSize = 5000
+	}
+	if itemsToPrune == 0 {
+		itemsToPrune = 500
+	}
 	return &Config{
-		DefaultTTL:  defaultTTL,
-		specificTTL: make(map[string]time.Duration),
-		caches:      &sync.Map{},
+		DefaultTTL:     defaultTTL,
+		specificTTL:    make(map[string]time.Duration),
+		mutatingCaches: make(map[string]bool),
+		caches:         &sync.Map{},
+		maxSize: maxSize,
+		itemsToPrune: itemsToPrune,
 	}
 }
 
@@ -43,6 +55,11 @@ func (c *Config) SetCacheTTL(serviceName, operationName string, ttl time.Duratio
 	c.specificTTL[fmt.Sprintf(cacheNameFormat, serviceName, operationName)] = ttl
 }
 
+// SetCacheMutating sets a specific operation to mutating/non-mutating
+func (c *Config) SetCacheMutating(serviceName, operationName string, isMutating bool) {
+	c.mutatingCaches[fmt.Sprintf(cacheNameFormat, serviceName, operationName)] = isMutating
+}
+
 // FlushCache flushes all caches for a service
 func (c *Config) FlushCache(serviceName string) {
 	c.caches.Range(func(k, v interface{}) bool {
@@ -51,7 +68,7 @@ func (c *Config) FlushCache(serviceName string) {
 			c.Lock()
 			o, _ := c.caches.Load(cacheName)
 			ccacheInstance := o.(*ccache.Cache)
-			c.caches.Store(cacheName, ccache.New(ccache.Configure()))
+			c.caches.Store(cacheName, ccache.New(ccache.Configure().MaxSize(c.maxSize).ItemsToPrune(c.itemsToPrune)))
 			ccacheInstance.Stop()
 			c.Unlock()
 			n := strings.Split(cacheName, ".")
@@ -61,14 +78,34 @@ func (c *Config) FlushCache(serviceName string) {
 	})
 }
 
+func (c *Config) FlushOperationCache(serviceName, operationName string) {
+	c.caches.Range(func(k, v interface{}) bool {
+		cacheName := k.(string)
+		if cacheName == fmt.Sprintf(cacheNameFormat, serviceName, operationName) {
+			c.Lock()
+			o, _ := c.caches.Load(cacheName)
+			ccacheInstance := o.(*ccache.Cache)
+			c.caches.Store(cacheName, ccache.New(ccache.Configure().MaxSize(c.maxSize).ItemsToPrune(c.itemsToPrune)))
+			ccacheInstance.Stop()
+			c.Unlock()
+		}
+		return true
+	})
+}
+
 func (c *Config) flushCaches(r *request.Request) {
 	opName := r.Operation.Name
+	serviceName := r.ClientInfo.ServiceName
 
 	if isCachable(opName) {
 		return
 	}
 
-	c.FlushCache(r.ClientInfo.ServiceName)
+	if c.isMutating(serviceName, opName) {
+		c.FlushCache(serviceName)
+	} else {
+		c.FlushOperationCache(serviceName, opName)
+	}
 
 	if strings.Contains(opName, "Tags") {
 		c.FlushCache(resourcegroupstaggingapi.ServiceName)
@@ -78,7 +115,7 @@ func (c *Config) flushCaches(r *request.Request) {
 func (c *Config) getCache(r *request.Request) *ccache.Cache {
 	_, ok := c.caches.Load(cacheName(r))
 	if !ok {
-		cache := ccache.New(ccache.Configure())
+		cache := ccache.New(ccache.Configure().MaxSize(c.maxSize).ItemsToPrune(c.itemsToPrune))
 		c.caches.Store(cacheName(r), cache)
 	}
 	o, _ := c.caches.Load(cacheName(r))
@@ -106,6 +143,14 @@ func (c *Config) set(r *request.Request, object interface{}) {
 	}
 
 	c.getCache(r).Set(cacheKey(r), object, ttl)
+}
+
+func (c *Config) isMutating(serviceName, operationName string) bool {
+	// assume cache is mutating by default
+	if val, ok := c.mutatingCaches[fmt.Sprintf(cacheNameFormat, serviceName, operationName)]; ok {
+		return val
+	}
+	return true
 }
 
 func cacheName(r *request.Request) string {

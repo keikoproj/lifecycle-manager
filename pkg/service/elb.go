@@ -2,11 +2,11 @@ package service
 
 import (
 	"errors"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
+	iebackoff "github.com/keikoproj/inverse-exp-backoff"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
@@ -20,7 +20,7 @@ func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI,
 		LoadBalancerName: aws.String(elbName),
 	}
 
-	for i := 0; i < WaiterMaxAttempts; i++ {
+	for ieb, err := iebackoff.NewIEBackoff(WaiterMinDelay, WaiterDelayInterval, 0.5, WaiterMaxAttempts); err == nil; err = ieb.Next() {
 
 		if event.eventCompleted {
 			return errors.New("event finished execution during deregistration wait")
@@ -41,11 +41,10 @@ func waitForDeregisterInstance(event *LifecycleEvent, elbClient elbiface.ELBAPI,
 			}
 		}
 		if !found {
-			log.Debugf("instance %v not found in elb %v", instanceID, elbName)
+			log.Debugf("%v> instance not found in elb %v", instanceID, elbName)
 			return nil
 		}
-		log.Debugf("target %v is still deregistering from %v", instanceID, elbName)
-		time.Sleep(time.Second * time.Duration(WaiterDelayIntervalSeconds))
+		log.Debugf("%v> deregistration from %v pending", instanceID, elbName)
 	}
 
 	err := errors.New("wait for target deregister timed out")
@@ -59,6 +58,7 @@ func findInstanceInClassicBalancer(elbClient elbiface.ELBAPI, elbName, instanceI
 
 	instance, err := elbClient.DescribeInstanceHealth(input)
 	if err != nil {
+		log.Errorf("%v> failed finding instance in elb %v: %v", instanceID, elbName, err.Error())
 		return false, err
 	}
 	for _, state := range instance.InstanceStates {
@@ -69,14 +69,18 @@ func findInstanceInClassicBalancer(elbClient elbiface.ELBAPI, elbName, instanceI
 	return false, nil
 }
 
-func deregisterInstance(elbClient elbiface.ELBAPI, elbName, instanceID string) error {
+func deregisterInstances(elbClient elbiface.ELBAPI, elbName string, instances []string) error {
+	targets := []*elb.Instance{}
+	for _, instance := range instances {
+		target := &elb.Instance{
+			InstanceId: aws.String(instance),
+		}
+		targets = append(targets, target)
+	}
+
 	input := &elb.DeregisterInstancesFromLoadBalancerInput{
 		LoadBalancerName: aws.String(elbName),
-		Instances: []*elb.Instance{
-			{
-				InstanceId: aws.String(instanceID),
-			},
-		},
+		Instances:        targets,
 	}
 
 	_, err := elbClient.DeregisterInstancesFromLoadBalancer(input)

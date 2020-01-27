@@ -19,7 +19,8 @@ import (
 func init() {
 	ThreadJitterRangeSeconds = 0
 	IterationJitterRangeSeconds = 0
-	WaiterDelayIntervalSeconds = 1
+	WaiterDelayInterval = 1 * time.Second
+	WaiterMinDelay = 2 * time.Second
 	WaiterMaxAttempts = 3
 	NodeAgeCacheTTL = 100
 }
