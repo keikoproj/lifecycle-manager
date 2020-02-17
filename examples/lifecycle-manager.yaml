@@ -63,6 +63,7 @@ spec:
       serviceAccountName: lifecycle-manager
       containers:
         - image: keikoproj/lifecycle-manager:latest
+          imagePullPolicy: "Always"
           name: lifecycle-manager
           resources:
             limits:
