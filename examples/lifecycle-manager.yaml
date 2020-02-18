@@ -63,6 +63,7 @@ spec:
       serviceAccountName: lifecycle-manager
       containers:
         - image: keikoproj/lifecycle-manager:latest
+          imagePullPolicy: "Always"
           name: lifecycle-manager
           resources:
             limits:
@@ -75,12 +76,3 @@ spec:
             - serve
             - --queue-name=lifecycle-manager-queue
             - --region=us-west-2
-          volumeMounts:
-            - name: ssl-certs
-              mountPath: /etc/ssl/certs/ca-certificates.crt
-              readOnly: true
-          imagePullPolicy: "Always"
-      volumes:
-        - name: ssl-certs
-          hostPath:
-            path: "/etc/ssl/certs/ca-bundle.crt"
