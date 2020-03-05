@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
@@ -25,13 +27,14 @@ type Manager struct {
 	context          ManagerContext
 	deregistrationMu sync.Mutex
 	sync.Mutex
-	workQueue       []*LifecycleEvent
-	targets         *sync.Map
-	metrics         *MetricsServer
-	avarageLatency  float64
-	completedEvents int
-	rejectedEvents  int
-	failedEvents    int
+	workQueue           []*LifecycleEvent
+	targets             *sync.Map
+	metrics             *MetricsServer
+	maxDrainConcurrency *semaphore.Weighted
+	avarageLatency      float64
+	completedEvents     int
+	rejectedEvents      int
+	failedEvents        int
 }
 
 // ManagerContext contain the user input parameters on the current context
@@ -81,12 +84,13 @@ type WaiterError struct {
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
-		eventStream:   make(chan *sqs.Message, 0),
-		workQueue:     make([]*LifecycleEvent, 0),
-		metrics:       &MetricsServer{},
-		targets:       &sync.Map{},
-		authenticator: auth,
-		context:       ctx,
+		eventStream:         make(chan *sqs.Message, 0),
+		workQueue:           make([]*LifecycleEvent, 0),
+		maxDrainConcurrency: semaphore.NewWeighted(MaxDrainConcurrency),
+		metrics:             &MetricsServer{},
+		targets:             &sync.Map{},
+		authenticator:       auth,
+		context:             ctx,
 	}
 }
 
