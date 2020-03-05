@@ -43,10 +43,6 @@ var (
 	WaiterMinDelay time.Duration = 3 * time.Minute
 	// WaiterMaxAttempts defines the maximum attempts a waiter will make before timing out
 	WaiterMaxAttempts uint32 = 120
-	// MaxDrainConcurrency buckets calls to drain nodes to N threads and blocks others using a semaphore
-	// this also delays parallel processing of terminating instances to N instances and is released when
-	// instances are drained
-	MaxDrainConcurrency int64 = 32
 )
 
 // Start starts the lifecycle-manager service
@@ -228,7 +224,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 
 	log.Debugf("%v> acquired drain semaphore", event.EC2InstanceID)
 	defer func() {
-		mgr.maxDrainConcurrency.Release(1)
+		mgr.context.MaxDrainConcurrency.Release(1)
 		log.Debugf("%v> released drain semaphore", event.EC2InstanceID)
 	}()
 
@@ -584,7 +580,7 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	}
 
 	// acquire a semaphore to drain the node, allow up to mgr.maxDrainConcurrency drains in parallel
-	if err := mgr.maxDrainConcurrency.Acquire(context.Background(), 1); err != nil {
+	if err := mgr.context.MaxDrainConcurrency.Acquire(context.Background(), 1); err != nil {
 		return err
 	}
 	err = mgr.drainNodeTarget(event)

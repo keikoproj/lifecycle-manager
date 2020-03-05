@@ -27,14 +27,13 @@ type Manager struct {
 	context          ManagerContext
 	deregistrationMu sync.Mutex
 	sync.Mutex
-	workQueue           []*LifecycleEvent
-	targets             *sync.Map
-	metrics             *MetricsServer
-	maxDrainConcurrency *semaphore.Weighted
-	avarageLatency      float64
-	completedEvents     int
-	rejectedEvents      int
-	failedEvents        int
+	workQueue       []*LifecycleEvent
+	targets         *sync.Map
+	metrics         *MetricsServer
+	avarageLatency  float64
+	completedEvents int
+	rejectedEvents  int
+	failedEvents    int
 }
 
 // ManagerContext contain the user input parameters on the current context
@@ -47,6 +46,7 @@ type ManagerContext struct {
 	DrainRetryIntervalSeconds int64
 	PollingIntervalSeconds    int64
 	WithDeregister            bool
+	MaxDrainConcurrency       *semaphore.Weighted
 }
 
 // Authenticator holds clients for all required APIs
@@ -84,13 +84,12 @@ type WaiterError struct {
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
-		eventStream:         make(chan *sqs.Message, 0),
-		workQueue:           make([]*LifecycleEvent, 0),
-		maxDrainConcurrency: semaphore.NewWeighted(MaxDrainConcurrency),
-		metrics:             &MetricsServer{},
-		targets:             &sync.Map{},
-		authenticator:       auth,
-		context:             ctx,
+		eventStream:   make(chan *sqs.Message, 0),
+		workQueue:     make([]*LifecycleEvent, 0),
+		metrics:       &MetricsServer{},
+		targets:       &sync.Map{},
+		authenticator: auth,
+		context:       ctx,
 	}
 }
 
