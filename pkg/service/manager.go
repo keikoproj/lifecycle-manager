@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/elb/elbiface"
 	"github.com/aws/aws-sdk-go/service/elbv2/elbv2iface"
@@ -44,6 +46,7 @@ type ManagerContext struct {
 	DrainRetryIntervalSeconds int64
 	PollingIntervalSeconds    int64
 	WithDeregister            bool
+	MaxDrainConcurrency       *semaphore.Weighted
 }
 
 // Authenticator holds clients for all required APIs

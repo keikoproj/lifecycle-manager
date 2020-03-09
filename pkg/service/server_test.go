@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/semaphore"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/elb"
@@ -30,6 +32,17 @@ func _completeEventAfter(event *LifecycleEvent, t time.Duration) {
 	event.SetEventCompleted(true)
 }
 
+func _newBasicContext() ManagerContext {
+	return ManagerContext{
+		KubectlLocalPath:       stubKubectlPathSuccess,
+		QueueName:              "my-queue",
+		Region:                 "us-west-2",
+		DrainTimeoutSeconds:    1,
+		PollingIntervalSeconds: 1,
+		MaxDrainConcurrency:    semaphore.NewWeighted(32),
+	}
+}
+
 func Test_RejectHandler(t *testing.T) {
 	t.Log("Test_RejectHandler: should handle rejections")
 	var (
@@ -50,13 +63,7 @@ func Test_RejectHandler(t *testing.T) {
 		SQSClient:          sqsStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-	}
+	ctx := _newBasicContext()
 
 	fakeMessage := &sqs.Message{
 		// invalid instance id
@@ -98,13 +105,7 @@ func Test_FailHandler(t *testing.T) {
 		SQSClient:          sqsStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-	}
+	ctx := _newBasicContext()
 
 	event := &LifecycleEvent{
 		LifecycleHookName:    "my-hook",
@@ -148,13 +149,7 @@ func Test_Process(t *testing.T) {
 		SQSClient:          sqsStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-	}
+	ctx := _newBasicContext()
 
 	fakeNodes := []v1.Node{
 		{
@@ -214,13 +209,7 @@ func Test_HandleEvent(t *testing.T) {
 		SQSClient:          sqsStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-	}
+	ctx := _newBasicContext()
 
 	fakeNodes := []v1.Node{
 		{
@@ -314,14 +303,8 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
 
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-		WithDeregister:         true,
-	}
+	ctx := _newBasicContext()
+	ctx.WithDeregister = true
 
 	fakeNodes := []v1.Node{
 		{
@@ -421,14 +404,8 @@ func Test_HandleEventWithDeregisterError(t *testing.T) {
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
 
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-		WithDeregister:         true,
-	}
+	ctx := _newBasicContext()
+	ctx.WithDeregister = true
 
 	fakeNodes := []v1.Node{
 		{
@@ -486,11 +463,7 @@ func Test_Poller(t *testing.T) {
 		SQSClient: sqsStubber,
 	}
 
-	ctx := ManagerContext{
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		PollingIntervalSeconds: 10,
-	}
+	ctx := _newBasicContext()
 
 	mgr := New(auth, ctx)
 	mgr.eventStream = fakeEventStream
@@ -528,13 +501,8 @@ func Test_Worker(t *testing.T) {
 		SQSClient:          sqsStubber,
 		KubernetesClient:   fake.NewSimpleClientset(),
 	}
-	ctx := ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-	}
+
+	ctx := _newBasicContext()
 
 	fakeNodes := []v1.Node{
 		{

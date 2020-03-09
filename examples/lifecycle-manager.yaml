@@ -67,7 +67,9 @@ spec:
           name: lifecycle-manager
           resources:
             limits:
-              memory: 1024Mi
+              # tested against surges of up to 100 nodes terminating, you may want more/less memory
+              # depending on your cluster behavior
+              memory: 2048Mi
             requests:
               cpu: 100m
               memory: 256Mi

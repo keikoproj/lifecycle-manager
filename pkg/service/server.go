@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -220,6 +221,13 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 		retryInterval = ctx.DrainRetryIntervalSeconds
 		successMsg    = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
 	)
+
+	log.Debugf("%v> acquired drain semaphore", event.EC2InstanceID)
+	defer func() {
+		mgr.context.MaxDrainConcurrency.Release(1)
+		log.Debugf("%v> released drain semaphore", event.EC2InstanceID)
+	}()
+
 	metrics.IncGauge(DrainingInstancesCountMetric)
 	defer metrics.DecGauge(DrainingInstancesCountMetric)
 
@@ -571,7 +579,10 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 		annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, InProgressAnnotationKey, string(storeMessage))
 	}
 
-	// node drain
+	// acquire a semaphore to drain the node, allow up to mgr.maxDrainConcurrency drains in parallel
+	if err := mgr.context.MaxDrainConcurrency.Acquire(context.Background(), 1); err != nil {
+		return err
+	}
 	err = mgr.drainNodeTarget(event)
 	if err != nil {
 		errs = errors.Wrap(err, "failed to drain node")
