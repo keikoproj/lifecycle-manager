@@ -53,6 +53,11 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
 	drainCommand := kubectlPath
 
+	if timeout == 0 {
+		log.Warn("skipping drain since timeout was set to 0")
+		return nil
+	}
+
 	err := runCommandWithContext(drainCommand, drainArgs, timeout, retryInterval)
 	if err != nil {
 		if err.Error() == "command execution timed out" {
