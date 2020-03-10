@@ -60,6 +60,7 @@ func (mgr *Manager) Start() {
 	log.Infof("queue = %v", ctx.QueueName)
 	log.Infof("polling interval seconds = %v", ctx.PollingIntervalSeconds)
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
+	log.Infof("unknown node drain timeout seconds = %v", ctx.DrainTimeoutUnknownSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
 
