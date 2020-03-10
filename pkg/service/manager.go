@@ -38,15 +38,16 @@ type Manager struct {
 
 // ManagerContext contain the user input parameters on the current context
 type ManagerContext struct {
-	CacheConfig               *cache.Config
-	KubectlLocalPath          string
-	QueueName                 string
-	Region                    string
-	DrainTimeoutSeconds       int64
-	DrainRetryIntervalSeconds int64
-	PollingIntervalSeconds    int64
-	WithDeregister            bool
-	MaxDrainConcurrency       *semaphore.Weighted
+	CacheConfig                *cache.Config
+	KubectlLocalPath           string
+	QueueName                  string
+	Region                     string
+	DrainTimeoutUnknownSeconds int64
+	DrainTimeoutSeconds        int64
+	DrainRetryIntervalSeconds  int64
+	PollingIntervalSeconds     int64
+	WithDeregister             bool
+	MaxDrainConcurrency        *semaphore.Weighted
 }
 
 // Authenticator holds clients for all required APIs
