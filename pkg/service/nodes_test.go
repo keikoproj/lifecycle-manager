@@ -14,6 +14,41 @@ var (
 	stubKubectlPathFail    = "/bin/some-bad-file"
 )
 
+func Test_NodeStatusPredicate(t *testing.T) {
+	t.Log("Test_NodeStatusPredicate: should return true if node readiness is in given condition")
+
+	readyNode := v1.Node{
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionTrue,
+				},
+			},
+		},
+	}
+
+	unknownNode := v1.Node{
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionUnknown,
+				},
+			},
+		},
+	}
+
+	if isNodeStatusInCondition(readyNode, v1.ConditionTrue) != true {
+		t.Fatalf("expected isNodeStatusInCondition exists to be: %t, got: %t", true, false)
+	}
+
+	if isNodeStatusInCondition(unknownNode, v1.ConditionUnknown) != true {
+		t.Fatalf("expected isNodeStatusInCondition exists to be: %t, got: %t", true, false)
+	}
+
+}
+
 func Test_GetNodeByInstancePositive(t *testing.T) {
 	t.Log("Test_GetNodeByInstancePositive: If a node exists, should be able to get it's instance ID")
 	kubeClient := fake.NewSimpleClientset()
