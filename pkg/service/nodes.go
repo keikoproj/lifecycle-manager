@@ -35,9 +35,28 @@ func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool
 	return foundNode, false
 }
 
+func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
+	var (
+		conditions = node.Status.Conditions
+	)
+	for _, c := range conditions {
+		if c.Type == v1.NodeReady {
+			if c.Status == condition {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error {
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
 	drainCommand := kubectlPath
+
+	if timeout == 0 {
+		log.Warn("skipping drain since timeout was set to 0")
+		return nil
+	}
 
 	err := runCommandWithContext(drainCommand, drainArgs, timeout, retryInterval)
 	if err != nil {

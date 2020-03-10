@@ -37,17 +37,18 @@ const (
 )
 
 var (
-	localMode                 string
-	region                    string
-	queueName                 string
-	kubectlLocalPath          string
-	nodeName                  string
-	logLevel                  string
-	deregisterTargetGroups    bool
-	drainRetryIntervalSeconds int
-	maxDrainConcurrency       int64
-	drainTimeoutSeconds       int
-	pollingIntervalSeconds    int
+	localMode                  string
+	region                     string
+	queueName                  string
+	kubectlLocalPath           string
+	nodeName                   string
+	logLevel                   string
+	deregisterTargetGroups     bool
+	drainRetryIntervalSeconds  int
+	maxDrainConcurrency        int64
+	drainTimeoutSeconds        int
+	drainTimeoutUnknownSeconds int
+	pollingIntervalSeconds     int
 
 	// DefaultRetryer is the default retry configuration for some AWS API calls
 	DefaultRetryer = client.DefaultRetryer{
@@ -81,15 +82,16 @@ var serveCmd = &cobra.Command{
 
 		// prepare runtime context
 		context := service.ManagerContext{
-			CacheConfig:               cacheCfg,
-			KubectlLocalPath:          kubectlLocalPath,
-			QueueName:                 queueName,
-			DrainTimeoutSeconds:       int64(drainTimeoutSeconds),
-			PollingIntervalSeconds:    int64(pollingIntervalSeconds),
-			DrainRetryIntervalSeconds: int64(drainRetryIntervalSeconds),
-			MaxDrainConcurrency:       semaphore.NewWeighted(maxDrainConcurrency),
-			Region:                    region,
-			WithDeregister:            deregisterTargetGroups,
+			CacheConfig:                cacheCfg,
+			KubectlLocalPath:           kubectlLocalPath,
+			QueueName:                  queueName,
+			DrainTimeoutSeconds:        int64(drainTimeoutSeconds),
+			DrainTimeoutUnknownSeconds: int64(drainTimeoutUnknownSeconds),
+			PollingIntervalSeconds:     int64(pollingIntervalSeconds),
+			DrainRetryIntervalSeconds:  int64(drainRetryIntervalSeconds),
+			MaxDrainConcurrency:        semaphore.NewWeighted(maxDrainConcurrency),
+			Region:                     region,
+			WithDeregister:             deregisterTargetGroups,
 		}
 
 		s := service.New(auth, context)
@@ -105,7 +107,8 @@ func init() {
 	serveCmd.Flags().StringVar(&kubectlLocalPath, "kubectl-path", "/usr/local/bin/kubectl", "the path to kubectl binary")
 	serveCmd.Flags().StringVar(&logLevel, "log-level", "info", "the logging level (info, warning, debug)")
 	serveCmd.Flags().Int64Var(&maxDrainConcurrency, "max-drain-concurrency", 32, "maximum number of node drains to process in parallel")
-	serveCmd.Flags().IntVar(&drainTimeoutSeconds, "drain-timeout", 300, "hard time limit for drain")
+	serveCmd.Flags().IntVar(&drainTimeoutSeconds, "drain-timeout", 300, "hard time limit for draining healthy nodes")
+	serveCmd.Flags().IntVar(&drainTimeoutUnknownSeconds, "drain-timeout-unknown", 30, "hard time limit for draining nodes that are in unknown state")
 	serveCmd.Flags().IntVar(&drainRetryIntervalSeconds, "drain-interval", 30, "interval in seconds for which to retry draining")
 	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
 	serveCmd.Flags().BoolVar(&deregisterTargetGroups, "with-deregister", true, "try to deregister deleting instance from target groups")

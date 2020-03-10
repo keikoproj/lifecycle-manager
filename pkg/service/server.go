@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elb"
@@ -58,6 +60,7 @@ func (mgr *Manager) Start() {
 	log.Infof("queue = %v", ctx.QueueName)
 	log.Infof("polling interval seconds = %v", ctx.PollingIntervalSeconds)
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
+	log.Infof("unknown node drain timeout seconds = %v", ctx.DrainTimeoutUnknownSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
 
@@ -230,6 +233,11 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 
 	metrics.IncGauge(DrainingInstancesCountMetric)
 	defer metrics.DecGauge(DrainingInstancesCountMetric)
+
+	if isNodeStatusInCondition(event.referencedNode, v1.ConditionUnknown) {
+		log.Infof("%v> node is in unknown state, setting drain deadline to %vs", event.EC2InstanceID, ctx.DrainTimeoutUnknownSeconds)
+		drainTimeout = ctx.DrainTimeoutUnknownSeconds
+	}
 
 	log.Infof("%v> draining node/%v", event.EC2InstanceID, event.referencedNode.Name)
 	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval)
