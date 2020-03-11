@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
++ Separate drain timeout for nodes in Unknown state (#51)
++ Bucket drain events using semaphore (#49)
+
 ## 0.3.4
 
 + More efficient deregistration (#42)
