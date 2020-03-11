@@ -20,7 +20,7 @@ In addition to node draining, lifecycle-manager also tries to deregister the ins
 
 1. Configure your scaling groups to notify lifecycle-manager of terminations. you can use the provided enrollment CLI by running
 
-```
+```bash
 $ make build
 ...
 
@@ -51,7 +51,8 @@ kubectl create namespace lifecycle-manager
 
 kubectl apply -f https://raw.githubusercontent.com/keikoproj/lifecycle-manager/master/examples/lifecycle-manager.yaml
 ```
-Modifications may be needed if you used a different queue name than above
+
+Modifications may be needed if you used a different queue name than mentioned above
 
 3. Kill an instance in your scaling group and watch it getting drained:
 
