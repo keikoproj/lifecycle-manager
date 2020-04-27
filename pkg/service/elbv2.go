@@ -20,7 +20,7 @@ func waitForDeregisterTarget(event *LifecycleEvent, elbClient elbv2iface.ELBV2AP
 		TargetGroupArn: aws.String(arn),
 	}
 
-	for ieb, err := iebackoff.NewIEBackoff(WaiterMinDelay, WaiterDelayInterval, 0.5, WaiterMaxAttempts); err == nil; err = ieb.Next() {
+	for ieb, err := iebackoff.NewIEBackoff(WaiterMaxDelay, WaiterMinDelay, 0.5, WaiterMaxAttempts); err == nil; err = ieb.Next() {
 
 		if event.eventCompleted {
 			return errors.New("event finished execution during deregistration wait")

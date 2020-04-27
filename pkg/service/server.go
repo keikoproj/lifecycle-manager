@@ -39,11 +39,11 @@ var (
 	IterationJitterRangeSeconds = 1.5
 	// NodeAgeCacheTTL defines a node age in minutes for which all caches are flushed
 	NodeAgeCacheTTL = 90
-	// WaiterDelayInterval defines the default polling interval for waiters
-	WaiterDelayInterval time.Duration = 30 * time.Second
-	// WaiterMinDelay is the minimum delay for waiter inverse exponential backoff
-	WaiterMinDelay time.Duration = 3 * time.Minute
-	// WaiterMaxAttempts defines the maximum attempts a waiter will make before timing out
+	// WaiterMinDelay defines the minimum delay of the IEB waiter
+	WaiterMinDelay time.Duration = 10 * time.Second
+	// WaiterMaxDelay defines the maximum delay of the IEB waiter
+	WaiterMaxDelay time.Duration = 90 * time.Second
+	// WaiterMaxAttempts defines the maximum attempts of the IEB waiter
 	WaiterMaxAttempts uint32 = 120
 )
 
@@ -430,22 +430,19 @@ func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *
 
 	go func() {
 		for {
-			log.Infof("%v> there are %v pending classic-elb waiters", event.EC2InstanceID, waiter.classicWaiterCount)
-			log.Infof("%v> there are %v pending target-group waiters", event.EC2InstanceID, waiter.targetGroupWaiterCount)
-			time.Sleep(60 * time.Second)
-
 			select {
 			case <-waiter.finished:
 				return
 			default:
+				log.Infof("%v> there are %v pending classic-elb waiters", event.EC2InstanceID, waiter.classicWaiterCount)
+				log.Infof("%v> there are %v pending target-group waiters", event.EC2InstanceID, waiter.targetGroupWaiterCount)
+				time.Sleep(180 * time.Second)
 			}
 		}
 	}()
 
-	go func() {
-		waiter.Wait()
-		close(waiter.finished)
-	}()
+	waiter.Wait()
+	close(waiter.finished)
 }
 
 func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
