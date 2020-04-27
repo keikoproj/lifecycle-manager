@@ -50,9 +50,11 @@ var (
 // Start starts the lifecycle-manager service
 func (mgr *Manager) Start() {
 	var (
-		ctx     = &mgr.context
-		metrics = mgr.metrics
-		kube    = mgr.authenticator.KubernetesClient
+		ctx      = &mgr.context
+		metrics  = mgr.metrics
+		kube     = mgr.authenticator.KubernetesClient
+		auth     = mgr.authenticator
+		queueURL = getQueueURLByName(auth.SQSClient, ctx.QueueName)
 	)
 
 	log.Infof("starting lifecycle-manager service v%v", version.Version)
@@ -67,7 +69,6 @@ func (mgr *Manager) Start() {
 	// start metrics server
 	log.Infof("starting metrics server on %v%v", MetricsEndpoint, MetricsPort)
 	go metrics.Start()
-	go mgr.newPoller()
 
 	// restore in-progress events if crashed
 	inProgressEvents, err := getNodesByAnnotationKey(kube, InProgressAnnotationKey)
@@ -75,6 +76,7 @@ func (mgr *Manager) Start() {
 		log.Errorf("failed to resume in progress events: %v", err)
 	}
 
+	// messages from in-progress are loaded to stream first
 	for node, sqsMessage := range inProgressEvents {
 		if sqsMessage == "" {
 			continue
@@ -84,17 +86,78 @@ func (mgr *Manager) Start() {
 		if err != nil {
 			log.Errorf("failed to resume in progress events: %v", err)
 		}
-		go mgr.newWorker(message)
+		mgr.eventStream <- message
 	}
 
-	// process messags from channel
+	// start SQS poller to load messages to stream from SQS
+	go mgr.newPoller()
+
+	// process events from stream
 	for message := range mgr.eventStream {
-		go mgr.newWorker(message)
+
+		event, err := mgr.newEvent(message, queueURL)
+		if err != nil {
+			mgr.RejectEvent(err, event)
+			continue
+		}
+
+		go mgr.Process(event)
 	}
 }
 
+func (mgr *Manager) newEvent(message *sqs.Message, queueURL string) (*LifecycleEvent, error) {
+	event, err := readMessage(message, queueURL)
+	if err != nil {
+		return &LifecycleEvent{}, err
+	}
+
+	if err = mgr.validateEvent(event); err != nil {
+		return event, err
+	}
+
+	return event, nil
+}
+
+func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
+	var (
+		auth       = mgr.authenticator
+		kubeClient = auth.KubernetesClient
+	)
+
+	if e.LifecycleTransition != TerminationEventName {
+		return errors.Errorf("got unsupported event type: '%+v'", e.LifecycleTransition)
+	}
+
+	if e.EC2InstanceID == "" {
+		return errors.Errorf("instance-id not provided in event: %+v", e)
+	}
+
+	if e.LifecycleHookName == "" {
+		return errors.Errorf("hook-name not provided in event: %+v", e)
+	}
+
+	if e.IsAlreadyExist(mgr.workQueue) {
+		return errors.New("event already exists")
+	}
+
+	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
+	if !exists {
+		return errors.Errorf("instance %v is not seen in cluster nodes", e.EC2InstanceID)
+	}
+
+	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
+	if err != nil {
+		return errors.Wrap(err, "failed to get hook heartbeat interval")
+	}
+
+	e.SetHeartbeatInterval(heartbeatInterval)
+	e.SetReferencedNode(node)
+
+	return nil
+}
+
 // Process processes a received event
-func (mgr *Manager) Process(event *LifecycleEvent) error {
+func (mgr *Manager) Process(event *LifecycleEvent) {
 
 	// add event to work queue
 	mgr.AddEvent(event)
@@ -104,13 +167,12 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 	// handle event
 	err := mgr.handleEvent(event)
 	if err != nil {
-		return err
+		mgr.FailEvent(err, event, true)
+		return
 	}
 
 	// mark event as completed
 	mgr.CompleteEvent(event)
-
-	return nil
 }
 
 func (mgr *Manager) newPoller() {
@@ -151,69 +213,6 @@ func (mgr *Manager) newPoller() {
 	}
 }
 
-func (mgr *Manager) newWorker(message *sqs.Message) {
-	var (
-		auth       = mgr.authenticator
-		kubeClient = auth.KubernetesClient
-		queue      = auth.SQSClient
-		ctx        = &mgr.context
-		url        = getQueueURLByName(queue, ctx.QueueName)
-	)
-
-	// process messags from channel
-	event, err := readMessage(message)
-	if err != nil {
-		err = errors.Wrap(err, "failed to read message")
-		mgr.RejectEvent(err, event)
-		return
-	}
-	event.SetQueueURL(url)
-
-	if !event.IsValid() {
-		err = errors.Wrap(err, "received invalid event")
-		mgr.RejectEvent(err, event)
-		return
-	}
-
-	if event.IsAlreadyExist(mgr.workQueue) {
-		err := errors.New("event already exists")
-		mgr.RejectEvent(err, event)
-		return
-	}
-
-	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, event.LifecycleHookName, event.AutoScalingGroupName)
-	if err != nil {
-		err = errors.Wrap(err, "failed to get hook heartbeat interval")
-		mgr.RejectEvent(err, event)
-		return
-	}
-	event.SetHeartbeatInterval(heartbeatInterval)
-
-	node, exists := getNodeByInstance(kubeClient, event.EC2InstanceID)
-	if !exists {
-		err = errors.Errorf("instance %v is not seen in cluster nodes", event.EC2InstanceID)
-		mgr.RejectEvent(err, event)
-		return
-	}
-	event.SetReferencedNode(node)
-	event.SetMessage(message)
-
-	msg := fmt.Sprintf(EventMessageLifecycleHookReceived, event.RequestID, event.EC2InstanceID)
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       msg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msgFields))
-
-	err = mgr.Process(event)
-	if err != nil {
-		mgr.FailEvent(err, event, true)
-		return
-	}
-}
-
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
 		ctx           = &mgr.context
@@ -244,26 +243,16 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	if err != nil {
 		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
-		msgFields := map[string]string{
-			"eventID":       event.RequestID,
-			"ec2InstanceId": event.EC2InstanceID,
-			"asgName":       event.AutoScalingGroupName,
-			"details":       failMsg,
-		}
-		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, msgFields))
+		kEvent := newKubernetesEvent(EventMessageNodeDrainFailed, getMessageFields(event, failMsg))
+		publishKubernetesEvent(kubeClient, kEvent)
 		return err
 	}
 	log.Infof("%v> completed drain for node/%v", event.EC2InstanceID, event.referencedNode.Name)
 	event.SetDrainCompleted(true)
 	metrics.AddCounter(SuccessfulNodeDrainTotalMetric, 1)
 
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       successMsg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, msgFields))
+	kEvent := newKubernetesEvent(EventReasonNodeDrainSucceeded, getMessageFields(event, successMsg))
+	publishKubernetesEvent(kubeClient, kEvent)
 	return nil
 }
 

@@ -97,12 +97,17 @@ func New(auth Authenticator, ctx ManagerContext) *Manager {
 func (mgr *Manager) AddEvent(event *LifecycleEvent) {
 	var (
 		metrics = mgr.metrics
+		kube    = mgr.authenticator.KubernetesClient
 	)
 	mgr.Lock()
 	event.SetEventTimeStarted(time.Now())
 	metrics.IncGauge(TerminatingInstancesCountMetric)
 	mgr.workQueue = append(mgr.workQueue, event)
 	mgr.Unlock()
+
+	msg := fmt.Sprintf(EventMessageLifecycleHookReceived, event.RequestID, event.EC2InstanceID)
+	kEvent := newKubernetesEvent(EventReasonLifecycleHookReceived, getMessageFields(event, msg))
+	publishKubernetesEvent(kube, kEvent)
 }
 
 func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
@@ -137,13 +142,8 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 				log.Errorf("failed to complete lifecycle action: %v", err)
 			}
 			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID, t)
-			msgFields := map[string]string{
-				"eventID":       event.RequestID,
-				"ec2InstanceId": event.EC2InstanceID,
-				"asgName":       event.AutoScalingGroupName,
-				"details":       msg,
-			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msgFields))
+			kEvent := newKubernetesEvent(EventReasonLifecycleHookProcessed, getMessageFields(event, msg))
+			publishKubernetesEvent(kubeClient, kEvent)
 			metrics.AddCounter(SuccessfulEventsTotalMetric, 1)
 		} else {
 			newQueue = append(newQueue, e)
@@ -172,14 +172,10 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	mgr.failedEvents++
 	metrics.AddCounter(FailedEventsTotalMetric, 1)
 	event.SetEventCompleted(true)
+
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       msg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msgFields))
+	kEvent := newKubernetesEvent(EventReasonLifecycleHookFailed, getMessageFields(event, msg))
+	publishKubernetesEvent(kubeClient, kEvent)
 
 	if abandon {
 		log.Warnf("abandoning instance %v", event.EC2InstanceID)

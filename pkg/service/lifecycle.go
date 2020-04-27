@@ -27,25 +27,6 @@ type LifecycleEvent struct {
 	message              *sqs.Message
 }
 
-func (e *LifecycleEvent) IsValid() bool {
-	if e.LifecycleTransition != TerminationEventName {
-		log.Warnf("got unsupported event type: '%+v'", e.LifecycleTransition)
-		return false
-	}
-
-	if e.EC2InstanceID == "" {
-		log.Warnf("instance-id not provided in event: %+v", e)
-		return false
-	}
-
-	if e.LifecycleHookName == "" {
-		log.Warnf("hook-name not provided in event: %+v", e)
-		return false
-	}
-
-	return true
-}
-
 func (e *LifecycleEvent) IsAlreadyExist(queue []*LifecycleEvent) bool {
 	for _, event := range queue {
 		if event.RequestID == e.RequestID {
