@@ -136,8 +136,8 @@ func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
 		return errors.Errorf("hook-name not provided in event: %+v", e)
 	}
 
-	if e.IsAlreadyExist(mgr.workQueue) {
-		return errors.New("event already exists")
+	if mgr.EventInQueue(e) {
+		return errors.New("event already exists in queue")
 	}
 
 	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
@@ -354,8 +354,6 @@ func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *
 	waiter.Add(workQueueLength)
 	// spawn waiters for classic elb
 	for _, elbName := range scanResult.ActiveLoadBalancers {
-		// sleep for random jitter per waiter
-		waitJitter(IterationJitterRangeSeconds)
 		go func(elbName, instance string) {
 			waiter.IncClassicWaiter()
 			defer waiter.DecClassicWaiter()
@@ -394,8 +392,6 @@ func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *
 
 	// spawn waiters for target groups
 	for arn, port := range scanResult.ActiveTargetGroups {
-		// sleep for random jitter per waiter
-		waitJitter(IterationJitterRangeSeconds)
 		go func(activeARN, instance string, activePort int64) {
 			waiter.IncTargetGroupWaiter()
 			defer waiter.DecTargetGroupWaiter()
@@ -466,12 +462,10 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	if !ctx.WithDeregister {
 		return nil
 	}
+	log.Infof("%v> starting load balancer drain worker", instanceID)
 
 	metrics.IncGauge(DeregisteringInstancesCountMetric)
 	defer metrics.DecGauge(DeregisteringInstancesCountMetric)
-
-	waitJitter(ThreadJitterRangeSeconds)
-	log.Infof("%v> starting load balancer drain worker", instanceID)
 
 	// add exclusion label
 	log.Debugf("%v> excluding node %v from load balancers", instanceID, node.Name)
@@ -495,6 +489,8 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	if err != nil {
 		return err
 	}
+
+	waitJitter(ThreadJitterRangeSeconds)
 
 	// trigger deregistrator to start scanning
 	log.Infof("%v> queuing deregistrator", instanceID)
