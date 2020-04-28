@@ -126,12 +126,15 @@ func Test_ReadMessage(t *testing.T) {
 		EC2InstanceID:        "i-123486890234",
 		LifecycleActionToken: "cc34960c-1e41-4703-a665-bdb3e5b81ad3",
 		receiptHandle:        "MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw=",
+		queueURL:             "some-queue",
 	}
 	fakeMessage := &sqs.Message{
 		Body:          aws.String(`{"LifecycleHookName":"my-hook","AccountId":"12345689012","RequestId":"63f5b5c2-58b3-0574-b7d5-b3162d0268f0","LifecycleTransition":"autoscaling:EC2_INSTANCE_TERMINATING","AutoScalingGroupName":"my-asg","Service":"AWS Auto Scaling","Time":"2019-09-27T02:39:14.183Z","EC2InstanceId":"i-123486890234","LifecycleActionToken":"cc34960c-1e41-4703-a665-bdb3e5b81ad3"}`),
 		ReceiptHandle: aws.String("MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw="),
 	}
-	event, err := readMessage(fakeMessage)
+	expectedLifecycleEvent.SetMessage(fakeMessage)
+
+	event, err := readMessage(fakeMessage, "some-queue")
 	if err != nil {
 		t.Fatalf("readMessage: expected error not to have occured, %v", err)
 	}

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -25,35 +24,6 @@ type LifecycleEvent struct {
 	eventCompleted       bool
 	startTime            time.Time
 	message              *sqs.Message
-}
-
-func (e *LifecycleEvent) IsValid() bool {
-	if e.LifecycleTransition != TerminationEventName {
-		log.Warnf("got unsupported event type: '%+v'", e.LifecycleTransition)
-		return false
-	}
-
-	if e.EC2InstanceID == "" {
-		log.Warnf("instance-id not provided in event: %+v", e)
-		return false
-	}
-
-	if e.LifecycleHookName == "" {
-		log.Warnf("hook-name not provided in event: %+v", e)
-		return false
-	}
-
-	return true
-}
-
-func (e *LifecycleEvent) IsAlreadyExist(queue []*LifecycleEvent) bool {
-	for _, event := range queue {
-		if event.RequestID == e.RequestID {
-			log.Debugf("event %v already being processed, discarding", event.RequestID)
-			return true
-		}
-	}
-	return false
 }
 
 // SetMessage is a setter method for the sqs message body

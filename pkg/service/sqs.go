@@ -39,18 +39,20 @@ func deserializeMessage(message string) (*sqs.Message, error) {
 	}
 	return sqsMessage, nil
 }
-func readMessage(message *sqs.Message) (*LifecycleEvent, error) {
+func readMessage(message *sqs.Message, queueURL string) (*LifecycleEvent, error) {
 	var (
 		event   = &LifecycleEvent{}
 		receipt = aws.StringValue(message.ReceiptHandle)
 		body    = aws.StringValue(message.Body)
 	)
 	log.Debugf("reading message id=%v", aws.StringValue(message.MessageId))
-	event.SetReceiptHandle(receipt)
 	err := json.Unmarshal([]byte(body), event)
 	if err != nil {
 		return event, err
 	}
+	event.SetReceiptHandle(receipt)
+	event.SetQueueURL(queueURL)
+	event.SetMessage(message)
 	log.Debugf("unmarshalling event with message body %v", aws.StringValue(message.Body))
 	return event, nil
 }

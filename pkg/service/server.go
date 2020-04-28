@@ -39,20 +39,22 @@ var (
 	IterationJitterRangeSeconds = 1.5
 	// NodeAgeCacheTTL defines a node age in minutes for which all caches are flushed
 	NodeAgeCacheTTL = 90
-	// WaiterDelayInterval defines the default polling interval for waiters
-	WaiterDelayInterval time.Duration = 30 * time.Second
-	// WaiterMinDelay is the minimum delay for waiter inverse exponential backoff
-	WaiterMinDelay time.Duration = 3 * time.Minute
-	// WaiterMaxAttempts defines the maximum attempts a waiter will make before timing out
+	// WaiterMinDelay defines the minimum delay of the IEB waiter
+	WaiterMinDelay time.Duration = 10 * time.Second
+	// WaiterMaxDelay defines the maximum delay of the IEB waiter
+	WaiterMaxDelay time.Duration = 90 * time.Second
+	// WaiterMaxAttempts defines the maximum attempts of the IEB waiter
 	WaiterMaxAttempts uint32 = 120
 )
 
 // Start starts the lifecycle-manager service
 func (mgr *Manager) Start() {
 	var (
-		ctx     = &mgr.context
-		metrics = mgr.metrics
-		kube    = mgr.authenticator.KubernetesClient
+		ctx      = &mgr.context
+		metrics  = mgr.metrics
+		kube     = mgr.authenticator.KubernetesClient
+		auth     = mgr.authenticator
+		queueURL = getQueueURLByName(auth.SQSClient, ctx.QueueName)
 	)
 
 	log.Infof("starting lifecycle-manager service v%v", version.Version)
@@ -67,7 +69,6 @@ func (mgr *Manager) Start() {
 	// start metrics server
 	log.Infof("starting metrics server on %v%v", MetricsEndpoint, MetricsPort)
 	go metrics.Start()
-	go mgr.newPoller()
 
 	// restore in-progress events if crashed
 	inProgressEvents, err := getNodesByAnnotationKey(kube, InProgressAnnotationKey)
@@ -75,6 +76,7 @@ func (mgr *Manager) Start() {
 		log.Errorf("failed to resume in progress events: %v", err)
 	}
 
+	// messages from in-progress are loaded to stream first
 	for node, sqsMessage := range inProgressEvents {
 		if sqsMessage == "" {
 			continue
@@ -84,17 +86,78 @@ func (mgr *Manager) Start() {
 		if err != nil {
 			log.Errorf("failed to resume in progress events: %v", err)
 		}
-		go mgr.newWorker(message)
+		mgr.eventStream <- message
 	}
 
-	// process messags from channel
+	// start SQS poller to load messages to stream from SQS
+	go mgr.newPoller()
+
+	// process events from stream
 	for message := range mgr.eventStream {
-		go mgr.newWorker(message)
+
+		event, err := mgr.newEvent(message, queueURL)
+		if err != nil {
+			mgr.RejectEvent(err, event)
+			continue
+		}
+
+		go mgr.Process(event)
 	}
 }
 
+func (mgr *Manager) newEvent(message *sqs.Message, queueURL string) (*LifecycleEvent, error) {
+	event, err := readMessage(message, queueURL)
+	if err != nil {
+		return &LifecycleEvent{}, err
+	}
+
+	if err = mgr.validateEvent(event); err != nil {
+		return event, err
+	}
+
+	return event, nil
+}
+
+func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
+	var (
+		auth       = mgr.authenticator
+		kubeClient = auth.KubernetesClient
+	)
+
+	if e.LifecycleTransition != TerminationEventName {
+		return errors.Errorf("got unsupported event type: '%+v'", e.LifecycleTransition)
+	}
+
+	if e.EC2InstanceID == "" {
+		return errors.Errorf("instance-id not provided in event: %+v", e)
+	}
+
+	if e.LifecycleHookName == "" {
+		return errors.Errorf("hook-name not provided in event: %+v", e)
+	}
+
+	if mgr.EventInQueue(e) {
+		return errors.New("event already exists in queue")
+	}
+
+	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
+	if !exists {
+		return errors.Errorf("instance %v is not seen in cluster nodes", e.EC2InstanceID)
+	}
+
+	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
+	if err != nil {
+		return errors.Wrap(err, "failed to get hook heartbeat interval")
+	}
+
+	e.SetHeartbeatInterval(heartbeatInterval)
+	e.SetReferencedNode(node)
+
+	return nil
+}
+
 // Process processes a received event
-func (mgr *Manager) Process(event *LifecycleEvent) error {
+func (mgr *Manager) Process(event *LifecycleEvent) {
 
 	// add event to work queue
 	mgr.AddEvent(event)
@@ -104,13 +167,12 @@ func (mgr *Manager) Process(event *LifecycleEvent) error {
 	// handle event
 	err := mgr.handleEvent(event)
 	if err != nil {
-		return err
+		mgr.FailEvent(err, event, true)
+		return
 	}
 
 	// mark event as completed
 	mgr.CompleteEvent(event)
-
-	return nil
 }
 
 func (mgr *Manager) newPoller() {
@@ -151,69 +213,6 @@ func (mgr *Manager) newPoller() {
 	}
 }
 
-func (mgr *Manager) newWorker(message *sqs.Message) {
-	var (
-		auth       = mgr.authenticator
-		kubeClient = auth.KubernetesClient
-		queue      = auth.SQSClient
-		ctx        = &mgr.context
-		url        = getQueueURLByName(queue, ctx.QueueName)
-	)
-
-	// process messags from channel
-	event, err := readMessage(message)
-	if err != nil {
-		err = errors.Wrap(err, "failed to read message")
-		mgr.RejectEvent(err, event)
-		return
-	}
-	event.SetQueueURL(url)
-
-	if !event.IsValid() {
-		err = errors.Wrap(err, "received invalid event")
-		mgr.RejectEvent(err, event)
-		return
-	}
-
-	if event.IsAlreadyExist(mgr.workQueue) {
-		err := errors.New("event already exists")
-		mgr.RejectEvent(err, event)
-		return
-	}
-
-	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, event.LifecycleHookName, event.AutoScalingGroupName)
-	if err != nil {
-		err = errors.Wrap(err, "failed to get hook heartbeat interval")
-		mgr.RejectEvent(err, event)
-		return
-	}
-	event.SetHeartbeatInterval(heartbeatInterval)
-
-	node, exists := getNodeByInstance(kubeClient, event.EC2InstanceID)
-	if !exists {
-		err = errors.Errorf("instance %v is not seen in cluster nodes", event.EC2InstanceID)
-		mgr.RejectEvent(err, event)
-		return
-	}
-	event.SetReferencedNode(node)
-	event.SetMessage(message)
-
-	msg := fmt.Sprintf(EventMessageLifecycleHookReceived, event.RequestID, event.EC2InstanceID)
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       msg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookReceived, msgFields))
-
-	err = mgr.Process(event)
-	if err != nil {
-		mgr.FailEvent(err, event, true)
-		return
-	}
-}
-
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
 		ctx           = &mgr.context
@@ -244,26 +243,16 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	if err != nil {
 		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
-		msgFields := map[string]string{
-			"eventID":       event.RequestID,
-			"ec2InstanceId": event.EC2InstanceID,
-			"asgName":       event.AutoScalingGroupName,
-			"details":       failMsg,
-		}
-		publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainFailed, msgFields))
+		kEvent := newKubernetesEvent(EventMessageNodeDrainFailed, getMessageFields(event, failMsg))
+		publishKubernetesEvent(kubeClient, kEvent)
 		return err
 	}
 	log.Infof("%v> completed drain for node/%v", event.EC2InstanceID, event.referencedNode.Name)
 	event.SetDrainCompleted(true)
 	metrics.AddCounter(SuccessfulNodeDrainTotalMetric, 1)
 
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       successMsg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonNodeDrainSucceeded, msgFields))
+	kEvent := newKubernetesEvent(EventReasonNodeDrainSucceeded, getMessageFields(event, successMsg))
+	publishKubernetesEvent(kubeClient, kEvent)
 	return nil
 }
 
@@ -365,8 +354,6 @@ func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *
 	waiter.Add(workQueueLength)
 	// spawn waiters for classic elb
 	for _, elbName := range scanResult.ActiveLoadBalancers {
-		// sleep for random jitter per waiter
-		waitJitter(IterationJitterRangeSeconds)
 		go func(elbName, instance string) {
 			waiter.IncClassicWaiter()
 			defer waiter.DecClassicWaiter()
@@ -405,8 +392,6 @@ func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *
 
 	// spawn waiters for target groups
 	for arn, port := range scanResult.ActiveTargetGroups {
-		// sleep for random jitter per waiter
-		waitJitter(IterationJitterRangeSeconds)
 		go func(activeARN, instance string, activePort int64) {
 			waiter.IncTargetGroupWaiter()
 			defer waiter.DecTargetGroupWaiter()
@@ -445,22 +430,19 @@ func (mgr *Manager) executeDeregisterWaiters(event *LifecycleEvent, scanResult *
 
 	go func() {
 		for {
-			log.Infof("%v> there are %v pending classic-elb waiters", event.EC2InstanceID, waiter.classicWaiterCount)
-			log.Infof("%v> there are %v pending target-group waiters", event.EC2InstanceID, waiter.targetGroupWaiterCount)
-			time.Sleep(60 * time.Second)
-
 			select {
 			case <-waiter.finished:
 				return
 			default:
+				log.Infof("%v> there are %v pending classic-elb waiters", event.EC2InstanceID, waiter.classicWaiterCount)
+				log.Infof("%v> there are %v pending target-group waiters", event.EC2InstanceID, waiter.targetGroupWaiterCount)
+				time.Sleep(180 * time.Second)
 			}
 		}
 	}()
 
-	go func() {
-		waiter.Wait()
-		close(waiter.finished)
-	}()
+	waiter.Wait()
+	close(waiter.finished)
 }
 
 func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
@@ -477,12 +459,10 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	if !ctx.WithDeregister {
 		return nil
 	}
+	log.Infof("%v> starting load balancer drain worker", instanceID)
 
 	metrics.IncGauge(DeregisteringInstancesCountMetric)
 	defer metrics.DecGauge(DeregisteringInstancesCountMetric)
-
-	waitJitter(ThreadJitterRangeSeconds)
-	log.Infof("%v> starting load balancer drain worker", instanceID)
 
 	// add exclusion label
 	log.Debugf("%v> excluding node %v from load balancers", instanceID, node.Name)
@@ -506,6 +486,8 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	if err != nil {
 		return err
 	}
+
+	waitJitter(ThreadJitterRangeSeconds)
 
 	// trigger deregistrator to start scanning
 	log.Infof("%v> queuing deregistrator", instanceID)

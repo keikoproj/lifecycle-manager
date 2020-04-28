@@ -21,8 +21,8 @@ import (
 func init() {
 	ThreadJitterRangeSeconds = 0
 	IterationJitterRangeSeconds = 0
-	WaiterDelayInterval = 1 * time.Second
-	WaiterMinDelay = 2 * time.Second
+	WaiterMinDelay = 1 * time.Second
+	WaiterMaxDelay = 2 * time.Second
 	WaiterMaxAttempts = 3
 	NodeAgeCacheTTL = 100
 }
@@ -72,16 +72,9 @@ func Test_RejectHandler(t *testing.T) {
 	}
 
 	mgr := New(auth, ctx)
-	mgr.newWorker(fakeMessage)
-
-	expectedFailedEvents := 1
-	if mgr.rejectedEvents != expectedFailedEvents {
-		t.Fatalf("expected rejected events: %v, got: %v", expectedFailedEvents, mgr.rejectedEvents)
-	}
-
-	expectedDeleteMessageEvents := 1
-	if sqsStubber.timesCalledDeleteMessage != expectedDeleteMessageEvents {
-		t.Fatalf("expected deleted events: %v, got: %v", expectedDeleteMessageEvents, sqsStubber.timesCalledDeleteMessage)
+	_, err := mgr.newEvent(fakeMessage, "some-queue")
+	if err == nil {
+		t.Fatalf("expected rejected events: %v, got: %v", 1, mgr.rejectedEvents)
 	}
 }
 
@@ -178,10 +171,6 @@ func Test_Process(t *testing.T) {
 		LifecycleActionToken: "cc34960c-1e41-4703-a665-bdb3e5b81ad3",
 		receiptHandle:        "MbZj6wDWli+JvwwJaBV+3dcjk2YW2vA3+STFFljTM8tJJg6HRG6PYSasuWXPJB+Cw=",
 		heartbeatInterval:    2,
-	}
-
-	if !event.IsValid() {
-		t.Fatal("Process: expected IsValid to be true, got: false")
 	}
 
 	g := New(auth, ctx)
@@ -527,7 +516,12 @@ func Test_Worker(t *testing.T) {
 	}
 
 	mgr := New(auth, ctx)
-	mgr.newWorker(fakeMessage)
+	event, err := mgr.newEvent(fakeMessage, "some-queue")
+	if err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	mgr.Process(event)
 	expectedCompletedEvents := 1
 
 	if mgr.completedEvents != expectedCompletedEvents {

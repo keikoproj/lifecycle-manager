@@ -97,12 +97,40 @@ func New(auth Authenticator, ctx ManagerContext) *Manager {
 func (mgr *Manager) AddEvent(event *LifecycleEvent) {
 	var (
 		metrics = mgr.metrics
+		kube    = mgr.authenticator.KubernetesClient
 	)
 	mgr.Lock()
 	event.SetEventTimeStarted(time.Now())
 	metrics.IncGauge(TerminatingInstancesCountMetric)
-	mgr.workQueue = append(mgr.workQueue, event)
+
+	if !mgr.EventInQueue(event) {
+		mgr.workQueue = append(mgr.workQueue, event)
+	}
+
 	mgr.Unlock()
+
+	msg := fmt.Sprintf(EventMessageLifecycleHookReceived, event.RequestID, event.EC2InstanceID)
+	kEvent := newKubernetesEvent(EventReasonLifecycleHookReceived, getMessageFields(event, msg))
+	publishKubernetesEvent(kube, kEvent)
+}
+
+func (mgr *Manager) EventInQueue(e *LifecycleEvent) bool {
+	for _, event := range mgr.workQueue {
+		if event.RequestID == e.RequestID {
+			return true
+		}
+	}
+	return false
+}
+
+func (mgr *Manager) RemoveFromQueue(event *LifecycleEvent) {
+	for idx, ev := range mgr.workQueue {
+		if event.RequestID == ev.RequestID {
+			mgr.Lock()
+			mgr.workQueue = append(mgr.workQueue[0:idx], mgr.workQueue[idx+1:]...)
+			mgr.Unlock()
+		}
+	}
 }
 
 func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
@@ -121,41 +149,30 @@ func (mgr *Manager) CompleteEvent(event *LifecycleEvent) {
 		mgr.avarageLatency = (mgr.avarageLatency + t) / 2
 	}
 
-	newQueue := make([]*LifecycleEvent, 0)
-	for _, e := range mgr.workQueue {
-		if reflect.DeepEqual(event, e) {
-			// found event in work queue
-			log.Infof("event %v completed processing", event.RequestID)
-			event.SetEventCompleted(true)
-
-			err := deleteMessage(queue, url, event.receiptHandle)
-			if err != nil {
-				log.Errorf("failed to delete message: %v", err)
-			}
-			err = completeLifecycleAction(asgClient, *event, ContinueAction)
-			if err != nil {
-				log.Errorf("failed to complete lifecycle action: %v", err)
-			}
-			msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID, t)
-			msgFields := map[string]string{
-				"eventID":       event.RequestID,
-				"ec2InstanceId": event.EC2InstanceID,
-				"asgName":       event.AutoScalingGroupName,
-				"details":       msg,
-			}
-			publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookProcessed, msgFields))
-			metrics.AddCounter(SuccessfulEventsTotalMetric, 1)
-		} else {
-			newQueue = append(newQueue, e)
-		}
-	}
-	mgr.Lock()
-	mgr.workQueue = newQueue
 	mgr.completedEvents++
+
+	log.Infof("event %v completed processing", event.RequestID)
+	event.SetEventCompleted(true)
+
+	err := deleteMessage(queue, url, event.receiptHandle)
+	if err != nil {
+		log.Errorf("failed to delete message: %v", err)
+	}
+
+	err = completeLifecycleAction(asgClient, *event, ContinueAction)
+	if err != nil {
+		log.Errorf("failed to complete lifecycle action: %v", err)
+	}
+
+	mgr.RemoveFromQueue(event)
+	msg := fmt.Sprintf(EventMessageLifecycleHookProcessed, event.RequestID, event.EC2InstanceID, t)
+	kEvent := newKubernetesEvent(EventReasonLifecycleHookProcessed, getMessageFields(event, msg))
+	publishKubernetesEvent(kubeClient, kEvent)
+
+	metrics.AddCounter(SuccessfulEventsTotalMetric, 1)
 	metrics.DecGauge(TerminatingInstancesCountMetric)
 	metrics.SetGauge(AverageDurationSecondsMetric, mgr.avarageLatency)
 	log.Infof("event %v for instance %v completed after %vs", event.RequestID, event.EC2InstanceID, t)
-	mgr.Unlock()
 }
 
 func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
@@ -172,14 +189,10 @@ func (mgr *Manager) FailEvent(err error, event *LifecycleEvent, abandon bool) {
 	mgr.failedEvents++
 	metrics.AddCounter(FailedEventsTotalMetric, 1)
 	event.SetEventCompleted(true)
+
 	msg := fmt.Sprintf(EventMessageLifecycleHookFailed, event.RequestID, t, err)
-	msgFields := map[string]string{
-		"eventID":       event.RequestID,
-		"ec2InstanceId": event.EC2InstanceID,
-		"asgName":       event.AutoScalingGroupName,
-		"details":       msg,
-	}
-	publishKubernetesEvent(kubeClient, newKubernetesEvent(EventReasonLifecycleHookFailed, msgFields))
+	kEvent := newKubernetesEvent(EventReasonLifecycleHookFailed, getMessageFields(event, msg))
+	publishKubernetesEvent(kubeClient, kEvent)
 
 	if abandon {
 		log.Warnf("abandoning instance %v", event.EC2InstanceID)

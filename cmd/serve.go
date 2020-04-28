@@ -14,8 +14,8 @@ import (
 
 const (
 	CacheDefaultTTL           time.Duration = time.Second * 0
-	DescribeTargetHealthTTL   time.Duration = 180 * time.Second
-	DescribeInstanceHealthTTL time.Duration = 180 * time.Second
+	DescribeTargetHealthTTL   time.Duration = 120 * time.Second
+	DescribeInstanceHealthTTL time.Duration = 120 * time.Second
 	DescribeTargetGroupsTTL   time.Duration = 300 * time.Second
 	DescribeLoadBalancersTTL  time.Duration = 300 * time.Second
 	CacheMaxItems             int64         = 5000

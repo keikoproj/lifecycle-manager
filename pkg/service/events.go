@@ -97,6 +97,15 @@ func getReasonEventLevel(reason EventReason) string {
 	return "Normal"
 }
 
+func getMessageFields(event *LifecycleEvent, details string) map[string]string {
+	return map[string]string{
+		"eventID":       event.RequestID,
+		"ec2InstanceId": event.EC2InstanceID,
+		"asgName":       event.AutoScalingGroupName,
+		"details":       details,
+	}
+}
+
 func newKubernetesEvent(reason EventReason, msgFields map[string]string) *v1.Event {
 	// Marshal as JSON
 	b, err := json.Marshal(msgFields)
