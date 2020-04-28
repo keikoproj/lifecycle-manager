@@ -18,7 +18,31 @@ In addition to node draining, lifecycle-manager also tries to deregister the ins
 
 ## Usage
 
-1. Follow the [AWS docs](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html#sqs-notifications) to create an SQS queue named `lifecycle-manager-queue`, a notification role, and a lifecycle-hook on your autoscaling group pointing to the created queue.
+1. Configure your scaling groups to notify lifecycle-manager of terminations. you can use the provided enrollment CLI by running
+
+```bash
+$ make build
+...
+
+$ ./bin/lifecycle-manager enroll --region us-west-2 --queue-name lifecycle-manager-queue --notification-role-name my-notification-role --target-scaling-groups scaling-group-1,scaling-group-2 --overwrite
+
+INFO[0000] starting enrollment for scaling groups [scaling-group-1 scaling-group-2]
+INFO[0000] creating notification role 'my-notification-role'
+INFO[0000] notification role 'my-notification-role' already exist, updating...
+INFO[0000] attaching notification policy 'arn:aws:iam::aws:policy/service-role/AutoScalingNotificationAccessRole'
+INFO[0001] created notification role 'arn:aws:iam::000000000000:role/my-notification-role'
+INFO[0001] creating SQS queue 'lifecycle-manager-queue'
+INFO[0001] created queue 'arn:aws:sqs:us-west-2:000000000000:lifecycle-manager-queue'
+INFO[0001] creating lifecycle hook for 'scaling-group-1'
+INFO[0002] creating lifecycle hook for 'scaling-group-2'
+INFO[0002] successfully enrolled 2 scaling groups
+INFO[0002] Queue Name: lifecycle-manager-queue
+INFO[0002] Queue URL: https://sqs.us-west-2.amazonaws.com/000000000000/lifecycle-manager-queue
+```
+
+Alternatively, you can simply follow the [AWS docs](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html#sqs-notifications) to create an SQS queue named `lifecycle-manager-queue`, a notification role, and a lifecycle-hook on your autoscaling group pointing to the created queue.
+
+Configured scaling groups will now publish termination hooks to the SQS queue you created.
 
 2. Deploy lifecycle-manager to your cluster:
 
@@ -28,16 +52,18 @@ kubectl create namespace lifecycle-manager
 kubectl apply -f https://raw.githubusercontent.com/keikoproj/lifecycle-manager/master/examples/lifecycle-manager.yaml
 ```
 
+Modifications may be needed if you used a different queue name than mentioned above
+
 3. Kill an instance in your scaling group and watch it getting drained:
 
 ```bash
-$ aws autoscaling terminate-instance-in-auto-scaling-group --instance-id i-0d3ba307bc6cebeda --region us-west-2 --no-should-decrement-desired-capacity
+$ aws autoscaling terminate-instance-in-auto-scaling-group --instance-id i-0868736e381bf942a --region us-west-2 --no-should-decrement-desired-capacity
 {
     "Activity": {
         "ActivityId": "5285b629-6a18-0a43-7c3c-f76bac8205f0",
-        "AutoScalingGroupName": "my-scaling-group",
-        "Description": "Terminating EC2 instance: i-0d3ba307bc6cebeda",
-        "Cause": "At 2019-10-02T02:44:11Z instance i-0d3ba307bc6cebeda was taken out of service in response to a user request.",
+        "AutoScalingGroupName": "scaling-group-1",
+        "Description": "Terminating EC2 instance: i-0868736e381bf942a",
+        "Cause": "At 2019-10-02T02:44:11Z instance i-0868736e381bf942a was taken out of service in response to a user request.",
         "StartTime": "2019-10-02T02:44:11.394Z",
         "StatusCode": "InProgress",
         "Progress": 0,
@@ -46,21 +72,23 @@ $ aws autoscaling terminate-instance-in-auto-scaling-group --instance-id i-0d3ba
 }
 
 $ kubectl logs lifecycle-manager
-time="2019-10-02T02:44:05Z" level=info msg="starting lifecycle-manager service v0.3.0"
-time="2019-10-02T02:44:05Z" level=info msg="region = us-west-2"
-time="2019-10-02T02:44:05Z" level=info msg="queue = https://sqs.us-west-2.amazonaws.com/00000EXAMPLE/lifecycle-manager-queue"
-time="2019-10-02T02:44:05Z" level=info msg="polling interval seconds = 10"
-time="2019-10-02T02:44:05Z" level=info msg="drain timeout seconds = 300"
-time="2019-10-02T02:44:05Z" level=info msg="drain retry interval seconds = 30"
-time="2019-10-02T02:44:05Z" level=info msg="spawning sqs poller"
-time="2019-10-02T02:44:12Z" level=info msg="spawning event handler"
-time="2019-10-02T02:44:12Z" level=info msg="hook heartbeat timeout interval is 60, will send heartbeat every 30 seconds"
-time="2019-10-02T02:44:12Z" level=info msg="draining node ip-10-10-10-10.us-west-2.compute.internal"
-time="2019-10-02T02:44:42Z" level=info msg="sending heartbeat for event with instance 'i-0d3ba307bc6cebeda' and sleeping for 30 seconds"
-time="2019-10-02T02:44:45Z" level=info msg="completed drain for node 'ip-10-10-10-10.us-west-2.compute.internal'"
-time="2019-10-02T02:44:45Z" level=info msg="deregistering i-0d3ba307bc6cebeda from arn:aws:elasticloadbalancing:us-west-2:00000EXAMPLE:targetgroup/targetgroup-9b26c8689f3b53a1ef0/53e66aede612f044"
-time="2019-10-02T02:44:45Z" level=info msg="sending heartbeat for event with instance 'i-0d3ba307bc6cebeda' and sleeping for 30 seconds"
-time="2019-10-02T02:45:15Z" level=info msg="setting lifecycle event as completed with result: 'CONTINUE'"
+time="2020-03-10T23:44:20Z" level=info msg="starting lifecycle-manager service v0.3.4"
+time="2020-03-10T23:44:20Z" level=info msg="region = us-west-2"
+time="2020-03-10T23:44:20Z" level=info msg="queue = lifecycle-manager-queue"
+time="2020-03-10T23:44:20Z" level=info msg="polling interval seconds = 10"
+time="2020-03-10T23:44:20Z" level=info msg="node drain timeout seconds = 300"
+time="2020-03-10T23:44:20Z" level=info msg="node drain retry interval seconds = 30"
+time="2020-03-10T23:44:20Z" level=info msg="with alb deregister = true"
+time="2020-03-10T23:44:20Z" level=info msg="starting metrics server on /metrics:8080"
+time="2020-03-11T07:24:37Z" level=info msg="i-0868736e381bf942a> received termination event"
+time="2020-03-11T07:24:37Z" level=info msg="i-0868736e381bf942a> sending heartbeat (1/24)"
+time="2020-03-11T07:24:37Z" level=info msg="i-0868736e381bf942a> draining node/ip-10-105-232-73.us-west-2.compute.internal"
+time="2020-03-11T07:24:37Z" level=info msg="i-0868736e381bf942a> completed drain for node/ip-10-105-232-73.us-west-2.compute.internal"
+time="2020-03-11T07:24:45Z" level=info msg="i-0868736e381bf942a> starting load balancer drain worker"
+...
+time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f75caf1a completed processing"
+time="2020-03-11T07:24:49Z" level=info msg="i-0868736e381bf942a> setting lifecycle event as completed with result: CONTINUE"
+time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f75caf1a for instance i-0868736e381bf942a completed after 12.054675203s"
 ```
 
 ### Required AWS Auth
