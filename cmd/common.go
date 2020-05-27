@@ -29,7 +29,7 @@ func newKubernetesClient(localMode string) *kubernetes.Clientset {
 		// use kubeconfig
 		config, err = clientcmd.BuildConfigFromFlags("", localMode)
 		if err != nil {
-			log.Fatalf("cannot load kubernetes config from '%v'", localMode)
+			log.Fatalf("cannot load kubernetes config from '%v', Err=%s", localMode, err)
 		}
 	} else {
 		// use InCluster auth

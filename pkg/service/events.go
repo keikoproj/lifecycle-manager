@@ -119,17 +119,22 @@ func newKubernetesEvent(reason EventReason, msgFields map[string]string) *v1.Eve
 	}
 
 	eventName := fmt.Sprintf("%v-%v.%v", "lifecycle-manager", time.Now().Unix(), rand.Int())
+	t := metav1.Time{Time: time.Now()}
 	event := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      eventName,
 			Namespace: EventNamespace,
 		},
-		Reason:  string(reason),
-		Message: msgPayload,
-		Type:    getReasonEventLevel(reason),
-		LastTimestamp: metav1.Time{
-			Time: time.Now(),
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "LifecycleManager",
+			Namespace: EventNamespace,
 		},
+		Reason:         string(reason),
+		Message:        msgPayload,
+		Type:           getReasonEventLevel(reason),
+		Count:          1,
+		FirstTimestamp: t,
+		LastTimestamp:  t,
 	}
 	return event
 }
