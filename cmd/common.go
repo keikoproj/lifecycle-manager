@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -51,14 +55,45 @@ func newIAMClient(region string) iamiface.IAMAPI {
 	return iam.New(sess)
 }
 
-func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
+func newAWSSession(region string) (*session.Session, error) {
 	config := aws.NewConfig().WithRegion(region)
 	config = config.WithCredentialsChainVerboseErrors(true)
+
+	if refreshExpiredCredentials {
+		filename := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+		if filename == "" {
+			filename = defaults.SharedCredentialsFilename()
+		}
+
+		profile := os.Getenv("AWS_PROFILE")
+		if profile == "" {
+			profile = "default"
+		}
+
+		// When corehandlers.AfterRetryHandler calls Config.Credentials.Expire,
+		// the SharedCredentialsProvider forces refreshing credentials from file.
+		// With the SDK's default credential chain, the file is never read.
+		config.WithCredentials(credentials.NewCredentials(&credentials.SharedCredentialsProvider{
+			Filename: filename,
+			Profile:  profile,
+		}))
+	}
+
 	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
 	sess, err := session.NewSession(config)
 	if err != nil {
-		log.Fatalf("failed to create elbv2 client, %v", err)
+		return nil, err
 	}
+
+	return sess, nil
+}
+
+func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
+	sess, err := newAWSSession(region)
+	if err != nil {
+		log.Fatalf("failed to create AWS session, %s", err)
+	}
+
 	cache.AddCaching(sess, cacheCfg)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetHealth", DescribeTargetHealthTTL)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetGroups", DescribeTargetGroupsTTL)
@@ -71,17 +106,16 @@ func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
 			r.Operation.Name,
 		)
 	})
+
 	return elbv2.New(sess)
 }
 
 func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
-	config := aws.NewConfig().WithRegion(region)
-	config = config.WithCredentialsChainVerboseErrors(true)
-	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
-	sess, err := session.NewSession(config)
+	sess, err := newAWSSession(region)
 	if err != nil {
-		log.Fatalf("failed to create elb client, %v", err)
+		log.Fatalf("failed to create AWS session, %s", err)
 	}
+
 	cache.AddCaching(sess, cacheCfg)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeInstanceHealth", DescribeInstanceHealthTTL)
 	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", DescribeLoadBalancersTTL)
@@ -94,27 +128,24 @@ func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
 			r.Operation.Name,
 		)
 	})
+
 	return elb.New(sess)
 }
 
 func newSQSClient(region string) sqsiface.SQSAPI {
-	config := aws.NewConfig().WithRegion(region)
-	config = config.WithCredentialsChainVerboseErrors(true)
-	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
-	sess, err := session.NewSession(config)
+	sess, err := newAWSSession(region)
 	if err != nil {
-		log.Fatalf("failed to create sqs client, %v", err)
+		log.Fatalf("failed to create AWS session, %s", err)
 	}
+
 	return sqs.New(sess)
 }
 
 func newASGClient(region string) autoscalingiface.AutoScalingAPI {
-	config := aws.NewConfig().WithRegion(region)
-	config = config.WithCredentialsChainVerboseErrors(true)
-	config = request.WithRetryer(config, log.NewRetryLogger(DefaultRetryer))
-	sess, err := session.NewSession(config)
+	sess, err := newAWSSession(region)
 	if err != nil {
-		log.Fatalf("failed to create asg client, %v", err)
+		log.Fatalf("failed to create AWS session, %s", err)
 	}
+
 	return autoscaling.New(sess)
 }
