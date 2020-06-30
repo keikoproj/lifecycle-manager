@@ -30,6 +30,7 @@ var (
 	nodeName                   string
 	logLevel                   string
 	deregisterTargetGroups     bool
+	refreshExpiredCredentials  bool
 	drainRetryIntervalSeconds  int
 	maxDrainConcurrency        int64
 	drainTimeoutSeconds        int
@@ -98,6 +99,7 @@ func init() {
 	serveCmd.Flags().IntVar(&drainRetryIntervalSeconds, "drain-interval", 30, "interval in seconds for which to retry draining")
 	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
 	serveCmd.Flags().BoolVar(&deregisterTargetGroups, "with-deregister", true, "try to deregister deleting instance from target groups")
+	serveCmd.Flags().BoolVar(&refreshExpiredCredentials, "refresh-expired-credentials", false, "refreshes expired credentials (requires shared credentials file)")
 }
 
 func validateServe() {
