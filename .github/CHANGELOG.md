@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1
+
++ Add option for refreshing expired AWS token (#57)
++ add Kind, firsttimestamp and count to v1.Event (#56)
++ Refactor message validation (#55)
++ Enrollment CLI (#53)
+
 ## 0.4.0
 
 + Separate drain timeout for nodes in Unknown state (#51)
