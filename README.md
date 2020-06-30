@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/keikoproj/lifecycle-manager.svg?branch=master)](https://travis-ci.org/keikoproj/lifecycle-manager)
 [![codecov](https://codecov.io/gh/keikoproj/lifecycle-manager/branch/master/graph/badge.svg)](https://codecov.io/gh/keikoproj/lifecycle-manager)
 [![Go Report Card](https://goreportcard.com/badge/github.com/keikoproj/lifecycle-manager)](https://goreportcard.com/report/github.com/keikoproj/lifecycle-manager)
-![version](https://img.shields.io/badge/version-0.4.0-green.svg?cacheSeconds=2592000)
+![version](https://img.shields.io/badge/version-0.4.1-green.svg?cacheSeconds=2592000)
 > Graceful AWS scaling event on Kubernetes using lifecycle hooks
 
 lifecycle-manager is a service that can be deployed to a Kubernetes cluster in order to make AWS autoscaling events more graceful using draining
