@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
++ Update kubectl to 1.16.5 (#60)
+
 ## 0.4.1
 
 + Add option for refreshing expired AWS token (#57)
