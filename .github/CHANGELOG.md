@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
++ Fix deadlock when resuming in-progress terminations (#63)
+
 ## 0.4.2
 
 + Update kubectl to 1.16.5 (#60)
