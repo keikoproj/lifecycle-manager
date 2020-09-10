@@ -86,7 +86,14 @@ func (mgr *Manager) Start() {
 		if err != nil {
 			log.Errorf("failed to resume in progress events: %v", err)
 		}
-		mgr.eventStream <- message
+
+		event, err := mgr.newEvent(message, queueURL)
+		if err != nil {
+			mgr.RejectEvent(err, event)
+			continue
+		}
+
+		go mgr.Process(event)
 	}
 
 	// start SQS poller to load messages to stream from SQS
