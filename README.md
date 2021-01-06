@@ -117,6 +117,23 @@ time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f7
 }
 ```
 
+# Flags
+| Name | Default | Type | Description |
+|------|---------|------|-------------|
+| local-mode | "" | String | absolute path to kubeconfig |
+| region | "" | String | AWS region to operate in |
+| queue-name | "" | String | the name of the SQS queue to consume lifecycle hooks from |
+| kubectl-path | "/usr/local/bin/kubectl" | String | the path to kubectl binary |
+| log-level | "info" | String | the logging level (info, warning, debug) |
+| max-drain-concurrency | 32 | Int | maximum number of node drains to process in parallel |
+| drain-timeout | 300 | Int | hard time limit for draining healthy nodes |
+| drain-timeout-unknown | 30 | Int | hard time limit for draining nodes that are in unknown state |
+| drain-interval | 30 | Int | interval in seconds for which to retry draining |
+| polling-interval | 10 | Int | interval in seconds for which to poll SQS |
+| with-deregister | true | Bool | try to deregister deleting instance from target groups |
+| refresh-expired-credentials | false | Bool | refreshes expired credentials (requires shared credentials file) |
+
+
 ## Release History
 
 Please see [CHANGELOG.md](.github/CHANGELOG.md).
