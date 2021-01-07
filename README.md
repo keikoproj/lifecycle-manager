@@ -119,7 +119,7 @@ time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f7
 
 # Flags
 | Name | Default | Type | Description |
-|------|---------|------|-------------|
+|:------:|:---------:|:------:|:-------------:|
 | local-mode | "" | String | absolute path to kubeconfig |
 | region | "" | String | AWS region to operate in |
 | queue-name | "" | String | the name of the SQS queue to consume lifecycle hooks from |
