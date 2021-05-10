@@ -48,9 +48,10 @@ func Test_SendHeartbeatPositive(t *testing.T) {
 		drainCompleted:       false,
 		heartbeatInterval:    3,
 	}
+	maxTimeToProcessSeconds := int64(3600)
 
 	go event._setEventCompletedAfter(true, 2)
-	sendHeartbeat(stubber, event)
+	sendHeartbeat(stubber, event, maxTimeToProcessSeconds)
 	expectedHeartbeatCalls := 3
 
 	if stubber.timesCalledRecordLifecycleActionHeartbeat != expectedHeartbeatCalls {
@@ -69,8 +70,9 @@ func Test_SendHeartbeatNegative(t *testing.T) {
 		eventCompleted:       true,
 		heartbeatInterval:    3,
 	}
+	maxTimeToProcessSeconds := int64(3600)
 
-	sendHeartbeat(stubber, event)
+	sendHeartbeat(stubber, event, maxTimeToProcessSeconds)
 	expectedHeartbeatCalls := 0
 
 	if stubber.timesCalledRecordLifecycleActionHeartbeat != expectedHeartbeatCalls {

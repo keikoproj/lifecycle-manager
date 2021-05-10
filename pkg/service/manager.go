@@ -48,6 +48,7 @@ type ManagerContext struct {
 	PollingIntervalSeconds     int64
 	WithDeregister             bool
 	MaxDrainConcurrency        *semaphore.Weighted
+	MaxTimeToProcessSeconds    int64
 }
 
 // Authenticator holds clients for all required APIs

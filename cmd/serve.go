@@ -36,6 +36,7 @@ var (
 	drainTimeoutSeconds        int
 	drainTimeoutUnknownSeconds int
 	pollingIntervalSeconds     int
+	maxTimeToProcessSeconds    int64
 
 	// DefaultRetryer is the default retry configuration for some AWS API calls
 	DefaultRetryer = client.DefaultRetryer{
@@ -77,6 +78,7 @@ var serveCmd = &cobra.Command{
 			PollingIntervalSeconds:     int64(pollingIntervalSeconds),
 			DrainRetryIntervalSeconds:  int64(drainRetryIntervalSeconds),
 			MaxDrainConcurrency:        semaphore.NewWeighted(maxDrainConcurrency),
+			MaxTimeToProcessSeconds:    int64(maxTimeToProcessSeconds),
 			Region:                     region,
 			WithDeregister:             deregisterTargetGroups,
 		}
@@ -94,6 +96,7 @@ func init() {
 	serveCmd.Flags().StringVar(&kubectlLocalPath, "kubectl-path", "/usr/local/bin/kubectl", "the path to kubectl binary")
 	serveCmd.Flags().StringVar(&logLevel, "log-level", "info", "the logging level (info, warning, debug)")
 	serveCmd.Flags().Int64Var(&maxDrainConcurrency, "max-drain-concurrency", 32, "maximum number of node drains to process in parallel")
+	serveCmd.Flags().Int64Var(&maxTimeToProcessSeconds, "max-time-to-process", 3600, "max time to spend processing an event")
 	serveCmd.Flags().IntVar(&drainTimeoutSeconds, "drain-timeout", 300, "hard time limit for draining healthy nodes")
 	serveCmd.Flags().IntVar(&drainTimeoutUnknownSeconds, "drain-timeout-unknown", 30, "hard time limit for draining nodes that are in unknown state")
 	serveCmd.Flags().IntVar(&drainRetryIntervalSeconds, "drain-interval", 30, "interval in seconds for which to retry draining")

@@ -10,7 +10,7 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 )
 
-func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent) {
+func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent, maxTimeToProcessSeconds int64) {
 	var (
 		iterationCount      = 0
 		interval            = event.heartbeatInterval
@@ -22,7 +22,7 @@ func sendHeartbeat(client autoscalingiface.AutoScalingAPI, event *LifecycleEvent
 	log.Debugf("scaling-group = %v, maxInterval = %v, heartbeat = %v", scalingGroupName, interval, recommendedInterval)
 
 	// max time to process an event is capped at 1hr
-	maxIterations := int(3600 / recommendedInterval)
+	maxIterations := int(maxTimeToProcessSeconds / recommendedInterval)
 
 	for {
 		iterationCount++
