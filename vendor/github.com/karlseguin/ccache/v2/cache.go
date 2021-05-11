@@ -8,6 +8,19 @@ import (
 	"time"
 )
 
+// The cache has a generic 'control' channel that is used to send
+// messages to the worker. These are the messages that can be sent to it
+type getDropped struct {
+	res chan int
+}
+type setMaxSize struct {
+	size int64
+}
+
+type clear struct {
+	done chan struct{}
+}
+
 type Cache struct {
 	*Configuration
 	list        *list.List
@@ -16,7 +29,7 @@ type Cache struct {
 	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
-	donec       chan struct{}
+	control     chan interface{}
 }
 
 // Create a new cache with the specified configuration
@@ -27,8 +40,9 @@ func New(config *Configuration) *Cache {
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
+		control:       make(chan interface{}),
 	}
-	for i := 0; i < int(config.buckets); i++ {
+	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &bucket{
 			lookup: make(map[string]*Item),
 		}
@@ -45,6 +59,31 @@ func (c *Cache) ItemCount() int {
 	return count
 }
 
+func (c *Cache) DeletePrefix(prefix string) int {
+	count := 0
+	for _, b := range c.buckets {
+		count += b.deletePrefix(prefix, c.deletables)
+	}
+	return count
+}
+
+// Deletes all items that the matches func evaluates to true.
+func (c *Cache) DeleteFunc(matches func(key string, item *Item) bool) int {
+	count := 0
+	for _, b := range c.buckets {
+		count += b.deleteFunc(matches, c.deletables)
+	}
+	return count
+}
+
+func (c *Cache) ForEachFunc(matches func(key string, item *Item) bool) {
+	for _, b := range c.buckets {
+		if !b.forEachFunc(matches) {
+			break
+		}
+	}
+}
+
 // Get an item from the cache. Returns nil if the item wasn't found.
 // This can return an expired item. Use item.Expired() to see if the item
 // is expired and item.TTL() to see how long until the item expires (which
@@ -54,7 +93,7 @@ func (c *Cache) Get(key string) *Item {
 	if item == nil {
 		return nil
 	}
-	if item.expires > time.Now().UnixNano() {
+	if !item.Expired() {
 		c.promote(item)
 	}
 	return item
@@ -71,9 +110,15 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 	return item
 }
 
+// Used when the cache was created with the Track() configuration option.
+// Sets the item, and returns a tracked reference to it.
+func (c *Cache) TrackingSet(key string, value interface{}, duration time.Duration) TrackedItem {
+	return c.set(key, value, duration, true)
+}
+
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-	c.set(key, value, duration)
+	c.set(key, value, duration, false)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
@@ -100,7 +145,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 	if err != nil {
 		return nil, err
 	}
-	return c.set(key, value, duration), nil
+	return c.set(key, value, duration, false), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
@@ -113,26 +158,38 @@ func (c *Cache) Delete(key string) bool {
 	return false
 }
 
-//this isn't thread safe. It's meant to be called from non-concurrent tests
+// Clears the cache
 func (c *Cache) Clear() {
-	for _, bucket := range c.buckets {
-		bucket.clear()
-	}
-	c.size = 0
-	c.list = list.New()
+	done := make(chan struct{})
+	c.control <- clear{done: done}
+	<-done
 }
 
 // Stops the background worker. Operations performed on the cache after Stop
 // is called are likely to panic
 func (c *Cache) Stop() {
 	close(c.promotables)
-	<-c.donec
+	<-c.control
+}
+
+// Gets the number of items removed from the cache due to memory pressure since
+// the last time GetDropped was called
+func (c *Cache) GetDropped() int {
+	res := make(chan int)
+	c.control <- getDropped{res: res}
+	return <-res
+}
+
+// Sets a new max size. That can result in a GC being run if the new maxium size
+// is smaller than the cached size
+func (c *Cache) SetMaxSize(size int64) {
+	c.control <- setMaxSize{size}
 }
 
 func (c *Cache) restart() {
 	c.deletables = make(chan *Item, c.deleteBuffer)
 	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.donec = make(chan struct{})
+	c.control = make(chan interface{})
 	go c.worker()
 }
 
@@ -141,8 +198,8 @@ func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 	c.deletables <- item
 }
 
-func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
-	item, existing := c.bucket(key).set(key, value, duration)
+func (c *Cache) set(key string, value interface{}, duration time.Duration, track bool) *Item {
+	item, existing := c.bucket(key).set(key, value, duration, track)
 	if existing != nil {
 		c.deletables <- existing
 	}
@@ -157,12 +214,16 @@ func (c *Cache) bucket(key string) *bucket {
 }
 
 func (c *Cache) promote(item *Item) {
-	c.promotables <- item
+	select {
+	case c.promotables <- item:
+	default:
+	}
+
 }
 
 func (c *Cache) worker() {
-	defer close(c.donec)
-
+	defer close(c.control)
+	dropped := 0
 	for {
 		select {
 		case item, ok := <-c.promotables:
@@ -170,10 +231,28 @@ func (c *Cache) worker() {
 				goto drain
 			}
 			if c.doPromote(item) && c.size > c.maxSize {
-				c.gc()
+				dropped += c.gc()
 			}
 		case item := <-c.deletables:
 			c.doDelete(item)
+		case control := <-c.control:
+			switch msg := control.(type) {
+			case getDropped:
+				msg.res <- dropped
+				dropped = 0
+			case setMaxSize:
+				c.maxSize = msg.size
+				if c.size > c.maxSize {
+					dropped += c.gc()
+				}
+			case clear:
+				for _, bucket := range c.buckets {
+					bucket.clear()
+				}
+				c.size = 0
+				c.list = list.New()
+				msg.done <- struct{}{}
+			}
 		}
 	}
 
@@ -219,11 +298,12 @@ func (c *Cache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *Cache) gc() {
+func (c *Cache) gc() int {
+	dropped := 0
 	element := c.list.Back()
 	for i := 0; i < c.itemsToPrune; i++ {
 		if element == nil {
-			return
+			return dropped
 		}
 		prev := element.Prev()
 		item := element.Value.(*Item)
@@ -234,8 +314,10 @@ func (c *Cache) gc() {
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
+			dropped += 1
 			item.promotions = -2
 		}
 		element = prev
 	}
+	return dropped
 }

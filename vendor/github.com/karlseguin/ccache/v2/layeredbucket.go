@@ -38,7 +38,7 @@ func (b *layeredBucket) getSecondaryBucket(primary string) *bucket {
 	return bucket
 }
 
-func (b *layeredBucket) set(primary, secondary string, value interface{}, duration time.Duration) (*Item, *Item) {
+func (b *layeredBucket) set(primary, secondary string, value interface{}, duration time.Duration, track bool) (*Item, *Item) {
 	b.Lock()
 	bkt, exists := b.buckets[primary]
 	if exists == false {
@@ -46,7 +46,7 @@ func (b *layeredBucket) set(primary, secondary string, value interface{}, durati
 		b.buckets[primary] = bkt
 	}
 	b.Unlock()
-	item, existing := bkt.set(secondary, value, duration)
+	item, existing := bkt.set(secondary, value, duration, track)
 	item.group = primary
 	return item, existing
 }
@@ -59,6 +59,26 @@ func (b *layeredBucket) delete(primary, secondary string) *Item {
 		return nil
 	}
 	return bucket.delete(secondary)
+}
+
+func (b *layeredBucket) deletePrefix(primary, prefix string, deletables chan *Item) int {
+	b.RLock()
+	bucket, exists := b.buckets[primary]
+	b.RUnlock()
+	if exists == false {
+		return 0
+	}
+	return bucket.deletePrefix(prefix, deletables)
+}
+
+func (b *layeredBucket) deleteFunc(primary string, matches func(key string, item *Item) bool, deletables chan *Item) int {
+	b.RLock()
+	bucket, exists := b.buckets[primary]
+	b.RUnlock()
+	if exists == false {
+		return 0
+	}
+	return bucket.deleteFunc(matches, deletables)
 }
 
 func (b *layeredBucket) deleteAll(primary string, deletables chan *Item) bool {
@@ -80,6 +100,15 @@ func (b *layeredBucket) deleteAll(primary string, deletables chan *Item) bool {
 		deletables <- item
 	}
 	return true
+}
+
+func (b *layeredBucket) forEachFunc(primary string, matches func(key string, item *Item) bool) {
+	b.RLock()
+	bucket, exists := b.buckets[primary]
+	b.RUnlock()
+	if exists {
+		bucket.forEachFunc(matches)
+	}
 }
 
 func (b *layeredBucket) clear() {

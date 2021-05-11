@@ -16,7 +16,7 @@ type LayeredCache struct {
 	size        int64
 	deletables  chan *Item
 	promotables chan *Item
-	donec       chan struct{}
+	control     chan interface{}
 }
 
 // Create a new layered cache with the specified configuration.
@@ -39,6 +39,7 @@ func Layered(config *Configuration) *LayeredCache {
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
+		control:       make(chan interface{}),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket{
@@ -72,6 +73,10 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	return item
 }
 
+func (c *LayeredCache) ForEachFunc(primary string, matches func(key string, item *Item) bool) {
+	c.bucket(primary).forEachFunc(primary, matches)
+}
+
 // Get the secondary cache for a given primary key. This operation will
 // never return nil. In the case where the primary key does not exist, a
 // new, underlying, empty bucket will be created and returned.
@@ -102,8 +107,13 @@ func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
 }
 
 // Set the value in the cache for the specified duration
+func (c *LayeredCache) TrackingSet(primary, secondary string, value interface{}, duration time.Duration) TrackedItem {
+	return c.set(primary, secondary, value, duration, true)
+}
+
+// Set the value in the cache for the specified duration
 func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
-	c.set(primary, secondary, value, duration)
+	c.set(primary, secondary, value, duration, false)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
@@ -130,7 +140,7 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 	if err != nil {
 		return nil, err
 	}
-	return c.set(primary, secondary, value, duration), nil
+	return c.set(primary, secondary, value, duration, false), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
@@ -148,28 +158,50 @@ func (c *LayeredCache) DeleteAll(primary string) bool {
 	return c.bucket(primary).deleteAll(primary, c.deletables)
 }
 
-//this isn't thread safe. It's meant to be called from non-concurrent tests
+// Deletes all items that share the same primary key and prefix.
+func (c *LayeredCache) DeletePrefix(primary, prefix string) int {
+	return c.bucket(primary).deletePrefix(primary, prefix, c.deletables)
+}
+
+// Deletes all items that share the same primary key and where the matches func evaluates to true.
+func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item *Item) bool) int {
+	return c.bucket(primary).deleteFunc(primary, matches, c.deletables)
+}
+
+// Clears the cache
 func (c *LayeredCache) Clear() {
-	for _, bucket := range c.buckets {
-		bucket.clear()
-	}
-	c.size = 0
-	c.list = list.New()
+	done := make(chan struct{})
+	c.control <- clear{done: done}
+	<-done
 }
 
 func (c *LayeredCache) Stop() {
 	close(c.promotables)
-	<-c.donec
+	<-c.control
+}
+
+// Gets the number of items removed from the cache due to memory pressure since
+// the last time GetDropped was called
+func (c *LayeredCache) GetDropped() int {
+	res := make(chan int)
+	c.control <- getDropped{res: res}
+	return <-res
+}
+
+// Sets a new max size. That can result in a GC being run if the new maxium size
+// is smaller than the cached size
+func (c *LayeredCache) SetMaxSize(size int64) {
+	c.control <- setMaxSize{size}
 }
 
 func (c *LayeredCache) restart() {
 	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.donec = make(chan struct{})
+	c.control = make(chan interface{})
 	go c.worker()
 }
 
-func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration) *Item {
-	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
+func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration, track bool) *Item {
+	item, existing := c.bucket(primary).set(primary, secondary, value, duration, track)
 	if existing != nil {
 		c.deletables <- existing
 	}
@@ -188,7 +220,8 @@ func (c *LayeredCache) promote(item *Item) {
 }
 
 func (c *LayeredCache) worker() {
-	defer close(c.donec)
+	defer close(c.control)
+	dropped := 0
 	for {
 		select {
 		case item, ok := <-c.promotables:
@@ -196,7 +229,7 @@ func (c *LayeredCache) worker() {
 				return
 			}
 			if c.doPromote(item) && c.size > c.maxSize {
-				c.gc()
+				dropped += c.gc()
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
@@ -207,6 +240,24 @@ func (c *LayeredCache) worker() {
 					c.onDelete(item)
 				}
 				c.list.Remove(item.element)
+			}
+		case control := <-c.control:
+			switch msg := control.(type) {
+			case getDropped:
+				msg.res <- dropped
+				dropped = 0
+			case setMaxSize:
+				c.maxSize = msg.size
+				if c.size > c.maxSize {
+					dropped += c.gc()
+				}
+			case clear:
+				for _, bucket := range c.buckets {
+					bucket.clear()
+				}
+				c.size = 0
+				c.list = list.New()
+				msg.done <- struct{}{}
 			}
 		}
 	}
@@ -229,11 +280,12 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *LayeredCache) gc() {
+func (c *LayeredCache) gc() int {
 	element := c.list.Back()
+	dropped := 0
 	for i := 0; i < c.itemsToPrune; i++ {
 		if element == nil {
-			return
+			return dropped
 		}
 		prev := element.Prev()
 		item := element.Value.(*Item)
@@ -242,7 +294,9 @@ func (c *LayeredCache) gc() {
 			c.size -= item.size
 			c.list.Remove(element)
 			item.promotions = -2
+			dropped += 1
 		}
 		element = prev
 	}
+	return dropped
 }

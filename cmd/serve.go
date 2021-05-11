@@ -18,6 +18,7 @@ const (
 	DescribeInstanceHealthTTL time.Duration = 120 * time.Second
 	DescribeTargetGroupsTTL   time.Duration = 300 * time.Second
 	DescribeLoadBalancersTTL  time.Duration = 300 * time.Second
+	BackgroundPruningInterval time.Duration = 3600 * time.Second
 	CacheMaxItems             int64         = 5000
 	CacheItemsToPrune         uint32        = 500
 )
@@ -57,7 +58,7 @@ var serveCmd = &cobra.Command{
 		// argument validation
 		validateServe()
 		log.SetLevel(logLevel)
-		cacheCfg := cache.NewConfig(CacheDefaultTTL, CacheMaxItems, CacheItemsToPrune)
+		cacheCfg := cache.NewConfig(CacheDefaultTTL, BackgroundPruningInterval, CacheMaxItems, CacheItemsToPrune)
 
 		// prepare auth clients
 		auth := service.Authenticator{
