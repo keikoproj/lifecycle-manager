@@ -61,6 +61,7 @@ func (mgr *Manager) Start() {
 	log.Infof("region = %v", ctx.Region)
 	log.Infof("queue = %v", ctx.QueueName)
 	log.Infof("polling interval seconds = %v", ctx.PollingIntervalSeconds)
+	log.Infof("max time to process seconds = %v", ctx.MaxTimeToProcessSeconds)
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
 	log.Infof("unknown node drain timeout seconds = %v", ctx.DrainTimeoutUnknownSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
@@ -566,7 +567,7 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	)
 
 	// send heartbeat at intervals
-	go sendHeartbeat(asgClient, event)
+	go sendHeartbeat(asgClient, event, mgr.context.MaxTimeToProcessSeconds)
 
 	// Annotate node with InProgressAnnotationKey = EventBody for resuming in case of crash
 	storeMessage, err := serializeMessage(event.message)

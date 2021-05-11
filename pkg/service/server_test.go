@@ -34,12 +34,13 @@ func _completeEventAfter(event *LifecycleEvent, t time.Duration) {
 
 func _newBasicContext() ManagerContext {
 	return ManagerContext{
-		KubectlLocalPath:       stubKubectlPathSuccess,
-		QueueName:              "my-queue",
-		Region:                 "us-west-2",
-		DrainTimeoutSeconds:    1,
-		PollingIntervalSeconds: 1,
-		MaxDrainConcurrency:    semaphore.NewWeighted(32),
+		KubectlLocalPath:        stubKubectlPathSuccess,
+		QueueName:               "my-queue",
+		Region:                  "us-west-2",
+		DrainTimeoutSeconds:     1,
+		PollingIntervalSeconds:  1,
+		MaxDrainConcurrency:     semaphore.NewWeighted(32),
+		MaxTimeToProcessSeconds: 3600,
 	}
 }
 
