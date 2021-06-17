@@ -33,6 +33,8 @@ var (
 	ExcludeLabelValue = "true"
 	// InProgressAnnotationKey is the annotation key for setting the state of a node to in-progress
 	InProgressAnnotationKey = "lifecycle-manager.keikoproj.io/in-progress"
+	// QueueNameAnnotationKey is the annotation key for saving the queue name for a node
+	QueueNameAnnotationKey = "lifecycle-manager.keikoproj.io/queue-name"
 	// ThreadJitterRangeSeconds configures the jitter range in seconds 0 to N per handler goroutine
 	ThreadJitterRangeSeconds = 30.0
 	// IterationJitterRangeSeconds configures the jitter range in seconds 0 to N per call iteration goroutine
@@ -72,13 +74,17 @@ func (mgr *Manager) Start() {
 	go metrics.Start()
 
 	// restore in-progress events if crashed
-	inProgressEvents, err := getNodesByAnnotationKey(kube, InProgressAnnotationKey)
+	inProgressEvents, err := getNodesByAnnotationKeys(kube, InProgressAnnotationKey, QueueNameAnnotationKey)
 	if err != nil {
 		log.Errorf("failed to resume in progress events: %v", err)
 	}
 
 	// messages from in-progress are loaded to stream first
-	for node, sqsMessage := range inProgressEvents {
+	for node, annotations := range inProgressEvents {
+		if annotations[QueueNameAnnotationKey] != ctx.QueueName && annotations[QueueNameAnnotationKey] != "" {
+			continue
+		}
+		sqsMessage := annotations[InProgressAnnotationKey]
 		if sqsMessage == "" {
 			continue
 		}
@@ -574,7 +580,11 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	if err != nil {
 		log.Errorf("%v> failed to serialize message for storage, event cannot be restored", event.EC2InstanceID)
 	} else {
-		annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, InProgressAnnotationKey, string(storeMessage))
+		annotations := map[string]string{
+			InProgressAnnotationKey: string(storeMessage),
+			QueueNameAnnotationKey:  mgr.context.QueueName,
+		}
+		annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, annotations)
 	}
 
 	// acquire a semaphore to drain the node, allow up to mgr.maxDrainConcurrency drains in parallel
@@ -593,7 +603,11 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	}
 
 	// clear the state annotation once processing is ended
-	annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, InProgressAnnotationKey, "")
+	annotations := map[string]string{
+		InProgressAnnotationKey: "",
+		QueueNameAnnotationKey:  "",
+	}
+	annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, annotations)
 
 	if errs != nil {
 		return errs

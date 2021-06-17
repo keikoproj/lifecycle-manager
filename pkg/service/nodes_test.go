@@ -113,7 +113,8 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node-1",
 				Annotations: map[string]string{
-					"some-key": "some-value",
+					"some-key":    "some-value",
+					"another-key": "another-value",
 				},
 			},
 			Spec: v1.NodeSpec{
@@ -124,7 +125,8 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "node-2",
 				Annotations: map[string]string{
-					"some-other-key": "some-value",
+					"some-other-key":    "some-value",
+					"another-other-key": "another-value",
 				},
 			},
 			Spec: v1.NodeSpec{
@@ -137,9 +139,12 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 		kubeClient.CoreV1().Nodes().Create(&node)
 	}
 
-	result, err := getNodesByAnnotationKey(kubeClient, "some-key")
-	expected := map[string]string{
-		"node-1": "some-value",
+	result, err := getNodesByAnnotationKeys(kubeClient, "some-key", "another-key")
+	expected := map[string]map[string]string{
+		"node-1": {
+			"some-key":    "some-value",
+			"another-key": "another-value",
+		},
 	}
 
 	if err != nil {
