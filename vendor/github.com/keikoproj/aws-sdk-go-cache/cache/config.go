@@ -11,38 +11,48 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/karlseguin/ccache"
+	"github.com/karlseguin/ccache/v2"
 )
 
 type Config struct {
-	DefaultTTL     time.Duration
-	specificTTL    map[string]time.Duration
-	mutatingCaches map[string]bool
+	DefaultTTL                time.Duration
+	BackgroundPruningInterval time.Duration
+	specificTTL               map[string]time.Duration
+	mutatingCaches            map[string]bool
+	excludedCaches            map[string]bool
 	sync.RWMutex
-	caches  *sync.Map
-	metrics *cacheCollector
-	maxSize int64
+	caches       *sync.Map
+	metrics      *cacheCollector
+	maxSize      int64
 	itemsToPrune uint32
 }
 
 const cacheNameFormat = "%v.%v"
 
 // NewConfig returns a cache configuration with the defaultTTL
-func NewConfig(defaultTTL time.Duration, maxSize int64, itemsToPrune uint32) *Config {
+func NewConfig(defaultTTL, backgroundPruning time.Duration, maxSize int64, itemsToPrune uint32) *Config {
 	if maxSize == 0 {
 		maxSize = 5000
 	}
 	if itemsToPrune == 0 {
 		itemsToPrune = 500
 	}
-	return &Config{
-		DefaultTTL:     defaultTTL,
-		specificTTL:    make(map[string]time.Duration),
-		mutatingCaches: make(map[string]bool),
-		caches:         &sync.Map{},
-		maxSize: maxSize,
-		itemsToPrune: itemsToPrune,
+
+	config := &Config{
+		BackgroundPruningInterval: backgroundPruning,
+		DefaultTTL:                defaultTTL,
+		specificTTL:               make(map[string]time.Duration),
+		mutatingCaches:            make(map[string]bool),
+		excludedCaches:            make(map[string]bool),
+		caches:                    &sync.Map{},
+		maxSize:                   maxSize,
+		itemsToPrune:              itemsToPrune,
 	}
+
+	// start goroutine to prune TTL expired items every BackgroundFlushingInterval
+	go config.backgroundPruneExpired()
+
+	return config
 }
 
 func (c *Config) NewCacheCollector(namespace string) prometheus.Collector {
@@ -60,11 +70,21 @@ func (c *Config) SetCacheMutating(serviceName, operationName string, isMutating 
 	c.mutatingCaches[fmt.Sprintf(cacheNameFormat, serviceName, operationName)] = isMutating
 }
 
+// SetExcludeFlushing sets a specific operation to never flush on mutation, only TTL
+func (c *Config) SetExcludeFlushing(serviceName, operationName string, isExcluded bool) {
+	c.excludedCaches[fmt.Sprintf(cacheNameFormat, serviceName, operationName)] = isExcluded
+}
+
 // FlushCache flushes all caches for a service
 func (c *Config) FlushCache(serviceName string) {
 	c.caches.Range(func(k, v interface{}) bool {
 		cacheName := k.(string)
+		if c.isExcluded(cacheName) {
+			// skip flushing if excluded
+			return true
+		}
 		if strings.HasPrefix(cacheName, serviceName) {
+
 			c.Lock()
 			o, _ := c.caches.Load(cacheName)
 			ccacheInstance := o.(*ccache.Cache)
@@ -81,6 +101,10 @@ func (c *Config) FlushCache(serviceName string) {
 func (c *Config) FlushOperationCache(serviceName, operationName string) {
 	c.caches.Range(func(k, v interface{}) bool {
 		cacheName := k.(string)
+		if c.isExcluded(cacheName) {
+			// skip flushing if excluded
+			return true
+		}
 		if cacheName == fmt.Sprintf(cacheNameFormat, serviceName, operationName) {
 			c.Lock()
 			o, _ := c.caches.Load(cacheName)
@@ -153,6 +177,13 @@ func (c *Config) isMutating(serviceName, operationName string) bool {
 	return true
 }
 
+func (c *Config) isExcluded(cacheName string) bool {
+	if val, ok := c.excludedCaches[cacheName]; ok {
+		return val
+	}
+	return false
+}
+
 func cacheName(r *request.Request) string {
 	return fmt.Sprintf(cacheNameFormat, r.ClientInfo.ServiceName, r.Operation.Name)
 }
@@ -185,5 +216,18 @@ func (c *Config) incMiss(r *request.Request) {
 func (c *Config) incFlush(serviceName, operationName string) {
 	if c.metrics != nil {
 		c.metrics.incFlush(serviceName, operationName)
+	}
+}
+
+func (c *Config) backgroundPruneExpired() {
+	for {
+		time.Sleep(c.BackgroundPruningInterval)
+		c.caches.Range(func(k, v interface{}) bool {
+			cache := v.(*ccache.Cache)
+			cache.DeleteFunc(func(kx string, vx *ccache.Item) bool {
+				return vx.Expired()
+			})
+			return true
+		})
 	}
 }

@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.12-alpine AS builder
+FROM golang:1.15-alpine AS builder
 
 LABEL REPO="https://github.com/keikoproj/lifecycle-manager"
 

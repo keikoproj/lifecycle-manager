@@ -7,11 +7,15 @@ Lock contention on the list is reduced by:
 * Using a buffered channel to queue promotions for a single worker
 * Garbage collecting within the same thread as the worker
 
+Unless otherwise stated, all methods are thread-safe.
+
 ## Setup
 
 First, download the project:
 
-    go get github.com/karlseguin/ccache
+```go
+    go get github.com/karlseguin/ccache/v2
+```
 
 ## Configuration
 Next, import and create a `Cache` instance:
@@ -19,7 +23,7 @@ Next, import and create a `Cache` instance:
 
 ```go
 import (
-  "github.com/karlseguin/ccache"
+  "github.com/karlseguin/ccache/v2"
 )
 
 var cache = ccache.New(ccache.Configure())
@@ -83,11 +87,23 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 ```
 
 ### Delete
-`Delete` expects the key to delete. It's ok to call `Delete` on a non-existant key:
+`Delete` expects the key to delete. It's ok to call `Delete` on a non-existent key:
 
 ```go
 cache.Delete("user:4")
 ```
+
+### DeletePrefix
+`DeletePrefix` deletes all keys matching the provided prefix. Returns the number of keys removed.
+
+### DeleteFunc
+`DeleteFunc` deletes all items that the provided matches func evaluates to true. Returns the number of keys removed.
+
+### ForEachFunc
+`ForEachFunc` iterates through all keys and values in the map and passes them to the provided function. Iteration stops if the function returns false. Iteration order is random.
+
+### Clear
+`Clear` clears the cache. If the cache's gc is running, `Clear` waits for it to finish.
 
 ### Extend
 The life of an item can be changed via the `Extend` method. This will change the expiry of the item by the specified duration relative to the current time.
@@ -100,6 +116,14 @@ cache.Replace("user:4", user)
 ```
 
 `Replace` returns true if the item existed (and thus was replaced). In the case where the key was not in the cache, the value *is not* inserted and false is returned.
+
+### GetDropped
+You can get the number of keys evicted due to memory pressure by calling `GetDropped`:
+
+```go
+dropped := cache.GetDropped()
+```
+The counter is reset on every call. If the cache's gc is running, `GetDropped` waits for it to finish; it's meant to be called asynchronously for statistics /monitoring purposes.
 
 ### Stop
 The cache's background worker can be stopped by calling `Stop`. Once `Stop` is called
@@ -122,11 +146,11 @@ user := item.Value()   //will be nil if "user:4" didn't exist in the cache
 item.Release()  //can be called even if item.Value() returned nil
 ```
 
-In practice, `Release` wouldn't be called until later, at some other place in your code.
+In practice, `Release` wouldn't be called until later, at some other place in your code. `TrackingSet` can be used to set a value to be tracked.
 
 There's a couple reason to use the tracking mode if other parts of your code also hold references to objects. First, if you're already going to hold a reference to these objects, there's really no reason not to have them in the cache - the memory is used up anyways.
 
-More important, it helps ensure that you're code returns consistent data. With tracking, "user:4" might be purged, and a subsequent `Fetch` would reload the data. This can result in different versions of "user:4" being returned by different parts of your system.
+More important, it helps ensure that your code returns consistent data. With tracking, "user:4" might be purged, and a subsequent `Fetch` would reload the data. This can result in different versions of "user:4" being returned by different parts of your system.
 
 ## LayeredCache
 
