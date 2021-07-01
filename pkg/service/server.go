@@ -27,9 +27,13 @@ var (
 	ContinueAction = "CONTINUE"
 	// AbandonAction is the name of the action in case we are unsuccessful in draining
 	AbandonAction = "ABANDON"
-	// ExcludeLabelKey is the alb-ingress-controller exclude label key
-	ExcludeLabelKey = "alpha.service-controller.kubernetes.io/exclude-balancer"
-	// ExcludeLabelValue is the alb-ingress-controller exclude label value
+	// AlphaExcludeLabelKey is the alb-ingress-controller exclude label key
+	AlphaExcludeLabelKey = "alpha.service-controller.kubernetes.io/exclude-balancer"
+	// AlphaExcludeLabelValue is the alb-ingress-controller exclude label value
+	AlphaExcludeLabelValue = "true"
+	// ExcludeLabelKey is the ServiceNodeExclusion feature exclude label key
+	ExcludeLabelKey = "node.kubernetes.io/exclude-from-external-load-balancers"
+	// ExcludeLabelKey is the ServiceNodeExclusion feature exclude label value
 	ExcludeLabelValue = "true"
 	// InProgressAnnotationKey is the annotation key for setting the state of a node to in-progress
 	InProgressAnnotationKey = "lifecycle-manager.keikoproj.io/in-progress"
@@ -481,6 +485,10 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	// add exclusion label
 	log.Debugf("%v> excluding node %v from load balancers", instanceID, node.Name)
 	err := labelNode(ctx.KubectlLocalPath, node.Name, ExcludeLabelKey, ExcludeLabelValue)
+	if err != nil {
+		return err
+	}
+	err = labelNode(ctx.KubectlLocalPath, node.Name, AlphaExcludeLabelKey, AlphaExcludeLabelValue)
 	if err != nil {
 		return err
 	}
