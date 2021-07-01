@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
++ Documentation fixes (#67)
++ Update kubectl binary to 1.18.14 (#68)
++ Allow lifecycle events longer than 1hr (#69)
++ Annotate node with queue URL (#71)
++ Move to Github Actions (#73)
++ Support Kubernetes 1.19 exclusion labels (#72)
+
 ## 0.4.3
 
 + Fix deadlock when resuming in-progress terminations (#63)
