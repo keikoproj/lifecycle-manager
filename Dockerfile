@@ -1,6 +1,6 @@
 # Build Stage
-FROM golang:1.12-alpine AS builder
-
+FROM --platform=$BUILDPLATFORM golang:1.17-alpine as builder
+ARG TARGETOS TARGETARCH
 LABEL REPO="https://github.com/keikoproj/lifecycle-manager"
 
 WORKDIR /go/src/github.com/keikoproj/lifecycle-manager
