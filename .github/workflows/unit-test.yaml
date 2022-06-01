@@ -23,7 +23,6 @@ jobs:
     - name: Test
       run: |
         make test
-        make docker-build
 
     - name: Upload to Codecov
       uses: codecov/codecov-action@v1
