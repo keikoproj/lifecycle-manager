@@ -7,6 +7,8 @@ GIT_COMMIT=$(shell git rev-parse HEAD)
 GIT_DIRTY=$(shell test -n "`git status --porcelain`" && echo "+CHANGES" || true)
 BUILD_DATE=$(shell date '+%Y-%m-%d-%H:%M:%S')
 IMAGE_NAME ?= keikoproj/lifecycle-manager:latest
+TARGETOS ?= linux
+TARGETARCH ?= amd64
 LDFLAGS=-ldflags "-X github.com/keikoproj/lifecycle-manager/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/keikoproj/lifecycle-manager/version.BuildDate=${BUILD_DATE}"
 
 default: test
@@ -27,7 +29,7 @@ help:
 build:
 	@echo "building ${BIN_NAME} ${VERSION}"
 	@echo "GOPATH=${GOPATH}"
-	CGO_ENABLED=0 go build ${LDFLAGS} -o bin/${BIN_NAME} github.com/keikoproj/lifecycle-manager
+	CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build ${LDFLAGS} -o bin/${BIN_NAME} github.com/keikoproj/lifecycle-manager
 
 get-deps:
 	dep ensure
