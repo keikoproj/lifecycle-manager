@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
++ Support cross-compliation for arm (#76)
+
 ## 0.5.0
 
 + Documentation fixes (#67)
