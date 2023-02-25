@@ -32,9 +32,6 @@ import (
 // NestedFieldCopy returns a deep copy of the value of a nested field.
 // Returns false if the value is missing.
 // No error is returned for a nil field.
-//
-// Note: fields passed to this function are treated as keys within the passed
-// object; no array/slice syntax is supported.
 func NestedFieldCopy(obj map[string]interface{}, fields ...string) (interface{}, bool, error) {
 	val, found, err := NestedFieldNoCopy(obj, fields...)
 	if !found || err != nil {
@@ -46,9 +43,6 @@ func NestedFieldCopy(obj map[string]interface{}, fields ...string) (interface{},
 // NestedFieldNoCopy returns a reference to a nested field.
 // Returns false if value is not found and an error if unable
 // to traverse obj.
-//
-// Note: fields passed to this function are treated as keys within the passed
-// object; no array/slice syntax is supported.
 func NestedFieldNoCopy(obj map[string]interface{}, fields ...string) (interface{}, bool, error) {
 	var val interface{} = obj
 
@@ -460,18 +454,12 @@ func (s unstructuredJSONScheme) decodeToList(data []byte, list *UnstructuredList
 	return nil
 }
 
-type jsonFallbackEncoder struct {
-	encoder runtime.Encoder
+type JSONFallbackEncoder struct {
+	runtime.Encoder
 }
 
-func NewJSONFallbackEncoder(encoder runtime.Encoder) runtime.Encoder {
-	return &jsonFallbackEncoder{
-		encoder: encoder,
-	}
-}
-
-func (c *jsonFallbackEncoder) Encode(obj runtime.Object, w io.Writer) error {
-	err := c.encoder.Encode(obj, w)
+func (c JSONFallbackEncoder) Encode(obj runtime.Object, w io.Writer) error {
+	err := c.Encoder.Encode(obj, w)
 	if runtime.IsNotRegisteredError(err) {
 		switch obj.(type) {
 		case *Unstructured, *UnstructuredList:
