@@ -78,23 +78,18 @@ func runCommandWithContext(call string, args []string, timeoutSeconds, retryInte
 	err := retry.Do(
 		func() error {
 			cmd := exec.CommandContext(ctx, call, args...)
-			out, err := cmd.CombinedOutput()
-			if ctx.Err() == context.DeadlineExceeded {
-				log.Error(timeoutErr)
-				return timeoutErr
-			}
+			_, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Errorf("call failed with output: %s,  error: %s", string(out), err)
 				return err
 			}
 			return nil
 		},
 		retry.RetryIf(func(err error) bool {
-			if err.Error() == timeoutErr.Error() {
-				return false
+			if err != nil {
+				log.Infoln("retrying drain")
+				return true
 			}
-			log.Infoln("retrying drain")
-			return true
+			return false
 		}),
 		retry.Attempts(3),
 		retry.Delay(time.Duration(retryInterval)*time.Second),
