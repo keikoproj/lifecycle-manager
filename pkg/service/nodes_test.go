@@ -173,7 +173,7 @@ func Test_DrainNodeNegative(t *testing.T) {
 }
 
 func Test_RunCommandWithContextWithoutTimeout(t *testing.T) {
-	t.Log("Test_RunCommandWithContextTimeout: should run a command with context successfully")
+	t.Log("Test_RunCommandWithContextTimeout: should run a command with context successfully (without timeout)")
 	err := runCommandWithContext("/bin/sleep", []string{"5"}, 10, 0)
 	if err != nil {
 		t.Fatalf("drainNode: expected error to not have occured, %v", err)
@@ -181,7 +181,7 @@ func Test_RunCommandWithContextWithoutTimeout(t *testing.T) {
 }
 
 func Test_RunCommandWithContextWithTimeout(t *testing.T) {
-	t.Log("Test_RunCommandWithContextTimeout: should run a command with context successfully")
+	t.Log("Test_RunCommandWithContextTimeout: should throw error (with timeout)")
 	err := runCommandWithContext("/bin/sleep", []string{"5"}, 1, 0)
 	if err == nil {
 		t.Fatalf("drainNode: expected error to have occured, %v", err)
