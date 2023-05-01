@@ -89,7 +89,7 @@ func runCommandWithContext(call string, args []string, timeoutSeconds, retryInte
 			}
 			return false
 		}),
-		retry.Attempts(retryAttempts),
+		retry.Attempts(uint(retryAttempts)),
 		retry.Delay(time.Duration(retryInterval)*time.Second),
 	)
 	if err != nil {
