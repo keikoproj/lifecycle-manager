@@ -10,6 +10,7 @@ IMAGE_NAME ?= keikoproj/lifecycle-manager:latest
 TARGETOS ?= linux
 TARGETARCH ?= amd64
 LDFLAGS=-ldflags "-X github.com/keikoproj/lifecycle-manager/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/keikoproj/lifecycle-manager/version.BuildDate=${BUILD_DATE}"
+TEST_FLAGS ?=
 
 default: test
 
@@ -44,11 +45,9 @@ docker-push:
 clean:
 	@test ! -e bin/${BIN_NAME} || rm bin/${BIN_NAME}
 
-vtest:
-	go test ./... -timeout 30s -v -coverprofile ./coverage.txt
-	go tool cover -html=./coverage.txt -o cover.html
+vtest: TEST_FLAGS += -v
 
-test:
-	go test ./... -timeout 30s -coverprofile ./coverage.txt
+test vtest:
+	go test ./... $(TEST_FLAGS) -timeout 30s -coverprofile ./coverage.txt
 	go tool cover -html=./coverage.txt -o cover.html
 
