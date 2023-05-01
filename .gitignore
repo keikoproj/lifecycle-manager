@@ -3,3 +3,5 @@ cover.html
 bin
 bin/*
 .DS_Store
+.idea
+.tool-versions
