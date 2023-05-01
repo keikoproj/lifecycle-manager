@@ -15,16 +15,18 @@
 // the targets.
 //
 // Elastic Load Balancing supports the following types of load balancers: Application
-// Load Balancers, Network Load Balancers, and Classic Load Balancers. This
-// reference covers Application Load Balancers and Network Load Balancers.
+// Load Balancers, Network Load Balancers, Gateway Load Balancers, and Classic
+// Load Balancers. This reference covers the following load balancer types:
 //
-// An Application Load Balancer makes routing and load balancing decisions at
-// the application layer (HTTP/HTTPS). A Network Load Balancer makes routing
-// and load balancing decisions at the transport layer (TCP/TLS). Both Application
-// Load Balancers and Network Load Balancers can route requests to one or more
-// ports on each EC2 instance or container instance in your virtual private
-// cloud (VPC). For more information, see the Elastic Load Balancing User Guide
-// (https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/).
+//   - Application Load Balancer - Operates at the application layer (layer
+//     7) and supports HTTP and HTTPS.
+//
+//   - Network Load Balancer - Operates at the transport layer (layer 4) and
+//     supports TCP, TLS, and UDP.
+//
+//   - Gateway Load Balancer - Operates at the network layer (layer 3).
+//
+// For more information, see the Elastic Load Balancing User Guide (https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/).
 //
 // All Elastic Load Balancing operations are idempotent, which means that they
 // complete at most one time. If you repeat an operation, it succeeds.
@@ -34,7 +36,7 @@
 // See elbv2 package documentation for more information.
 // https://docs.aws.amazon.com/sdk-for-go/api/service/elbv2/
 //
-// Using the Client
+// # Using the Client
 //
 // To contact Elastic Load Balancing with the SDK use the New function to create
 // a new service client. With that client you can make API requests to the service.

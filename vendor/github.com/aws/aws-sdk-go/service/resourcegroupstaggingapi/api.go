@@ -8,7 +8,315 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/private/protocol"
+	"github.com/aws/aws-sdk-go/private/protocol/jsonrpc"
 )
+
+const opDescribeReportCreation = "DescribeReportCreation"
+
+// DescribeReportCreationRequest generates a "aws/request.Request" representing the
+// client's request for the DescribeReportCreation operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See DescribeReportCreation for more information on using the DescribeReportCreation
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//	// Example sending a request using the DescribeReportCreationRequest method.
+//	req, resp := client.DescribeReportCreationRequest(params)
+//
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/DescribeReportCreation
+func (c *ResourceGroupsTaggingAPI) DescribeReportCreationRequest(input *DescribeReportCreationInput) (req *request.Request, output *DescribeReportCreationOutput) {
+	op := &request.Operation{
+		Name:       opDescribeReportCreation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeReportCreationInput{}
+	}
+
+	output = &DescribeReportCreationOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// DescribeReportCreation API operation for AWS Resource Groups Tagging API.
+//
+// Describes the status of the StartReportCreation operation.
+//
+// You can call this operation only from the organization's management account
+// and from the us-east-1 Region.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for AWS Resource Groups Tagging API's
+// API operation DescribeReportCreation for usage and error information.
+//
+// Returned Error Types:
+//
+//   - ConstraintViolationException
+//     The request was denied because performing this operation violates a constraint.
+//
+//     Some of the reasons in the following list might not apply to this specific
+//     operation.
+//
+//   - You must meet the prerequisites for using tag policies. For information,
+//     see Prerequisites and Permissions for Using Tag Policies (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html)
+//     in the Organizations User Guide.
+//
+//   - You must enable the tag policies service principal (tagpolicies.tag.amazonaws.com)
+//     to integrate with Organizations For information, see EnableAWSServiceAccess
+//     (https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
+//
+//   - You must have a tag policy attached to the organization root, an OU,
+//     or an account.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
+//
+//   - InvalidParameterException
+//     This error indicates one of the following:
+//
+//   - A parameter is missing.
+//
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/DescribeReportCreation
+func (c *ResourceGroupsTaggingAPI) DescribeReportCreation(input *DescribeReportCreationInput) (*DescribeReportCreationOutput, error) {
+	req, out := c.DescribeReportCreationRequest(input)
+	return out, req.Send()
+}
+
+// DescribeReportCreationWithContext is the same as DescribeReportCreation with the addition of
+// the ability to pass a context and additional request options.
+//
+// See DescribeReportCreation for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ResourceGroupsTaggingAPI) DescribeReportCreationWithContext(ctx aws.Context, input *DescribeReportCreationInput, opts ...request.Option) (*DescribeReportCreationOutput, error) {
+	req, out := c.DescribeReportCreationRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+const opGetComplianceSummary = "GetComplianceSummary"
+
+// GetComplianceSummaryRequest generates a "aws/request.Request" representing the
+// client's request for the GetComplianceSummary operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See GetComplianceSummary for more information on using the GetComplianceSummary
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//	// Example sending a request using the GetComplianceSummaryRequest method.
+//	req, resp := client.GetComplianceSummaryRequest(params)
+//
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetComplianceSummary
+func (c *ResourceGroupsTaggingAPI) GetComplianceSummaryRequest(input *GetComplianceSummaryInput) (req *request.Request, output *GetComplianceSummaryOutput) {
+	op := &request.Operation{
+		Name:       opGetComplianceSummary,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+		Paginator: &request.Paginator{
+			InputTokens:     []string{"PaginationToken"},
+			OutputTokens:    []string{"PaginationToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
+	}
+
+	if input == nil {
+		input = &GetComplianceSummaryInput{}
+	}
+
+	output = &GetComplianceSummaryOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// GetComplianceSummary API operation for AWS Resource Groups Tagging API.
+//
+// Returns a table that shows counts of resources that are noncompliant with
+// their tag policies.
+//
+// For more information on tag policies, see Tag Policies (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html)
+// in the Organizations User Guide.
+//
+// You can call this operation only from the organization's management account
+// and from the us-east-1 Region.
+//
+// This operation supports pagination, where the response can be sent in multiple
+// pages. You should check the PaginationToken response parameter to determine
+// if there are additional results available to return. Repeat the query, passing
+// the PaginationToken response parameter value as an input to the next request
+// until you recieve a null value. A null value for PaginationToken indicates
+// that there are no more results waiting to be returned.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for AWS Resource Groups Tagging API's
+// API operation GetComplianceSummary for usage and error information.
+//
+// Returned Error Types:
+//
+//   - ConstraintViolationException
+//     The request was denied because performing this operation violates a constraint.
+//
+//     Some of the reasons in the following list might not apply to this specific
+//     operation.
+//
+//   - You must meet the prerequisites for using tag policies. For information,
+//     see Prerequisites and Permissions for Using Tag Policies (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html)
+//     in the Organizations User Guide.
+//
+//   - You must enable the tag policies service principal (tagpolicies.tag.amazonaws.com)
+//     to integrate with Organizations For information, see EnableAWSServiceAccess
+//     (https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
+//
+//   - You must have a tag policy attached to the organization root, an OU,
+//     or an account.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
+//
+//   - InvalidParameterException
+//     This error indicates one of the following:
+//
+//   - A parameter is missing.
+//
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetComplianceSummary
+func (c *ResourceGroupsTaggingAPI) GetComplianceSummary(input *GetComplianceSummaryInput) (*GetComplianceSummaryOutput, error) {
+	req, out := c.GetComplianceSummaryRequest(input)
+	return out, req.Send()
+}
+
+// GetComplianceSummaryWithContext is the same as GetComplianceSummary with the addition of
+// the ability to pass a context and additional request options.
+//
+// See GetComplianceSummary for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ResourceGroupsTaggingAPI) GetComplianceSummaryWithContext(ctx aws.Context, input *GetComplianceSummaryInput, opts ...request.Option) (*GetComplianceSummaryOutput, error) {
+	req, out := c.GetComplianceSummaryRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+// GetComplianceSummaryPages iterates over the pages of a GetComplianceSummary operation,
+// calling the "fn" function with the response data for each page. To stop
+// iterating, return false from the fn function.
+//
+// See GetComplianceSummary method for more information on how to use this operation.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//	// Example iterating over at most 3 pages of a GetComplianceSummary operation.
+//	pageNum := 0
+//	err := client.GetComplianceSummaryPages(params,
+//	    func(page *resourcegroupstaggingapi.GetComplianceSummaryOutput, lastPage bool) bool {
+//	        pageNum++
+//	        fmt.Println(page)
+//	        return pageNum <= 3
+//	    })
+func (c *ResourceGroupsTaggingAPI) GetComplianceSummaryPages(input *GetComplianceSummaryInput, fn func(*GetComplianceSummaryOutput, bool) bool) error {
+	return c.GetComplianceSummaryPagesWithContext(aws.BackgroundContext(), input, fn)
+}
+
+// GetComplianceSummaryPagesWithContext same as GetComplianceSummaryPages except
+// it takes a Context and allows setting request options on the pages.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ResourceGroupsTaggingAPI) GetComplianceSummaryPagesWithContext(ctx aws.Context, input *GetComplianceSummaryInput, fn func(*GetComplianceSummaryOutput, bool) bool, opts ...request.Option) error {
+	p := request.Pagination{
+		NewRequest: func() (*request.Request, error) {
+			var inCpy *GetComplianceSummaryInput
+			if input != nil {
+				tmp := *input
+				inCpy = &tmp
+			}
+			req, _ := c.GetComplianceSummaryRequest(inCpy)
+			req.SetContext(ctx)
+			req.ApplyOptions(opts...)
+			return req, nil
+		},
+	}
+
+	for p.Next() {
+		if !fn(p.Page().(*GetComplianceSummaryOutput), !p.HasNextPage()) {
+			break
+		}
+	}
+
+	return p.Err()
+}
 
 const opGetResources = "GetResources"
 
@@ -26,14 +334,13 @@ const opGetResources = "GetResources"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the GetResourcesRequest method.
+//	req, resp := client.GetResourcesRequest(params)
 //
-//    // Example sending a request using the GetResourcesRequest method.
-//    req, resp := client.GetResourcesRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetResources
 func (c *ResourceGroupsTaggingAPI) GetResourcesRequest(input *GetResourcesInput) (req *request.Request, output *GetResourcesOutput) {
@@ -61,15 +368,25 @@ func (c *ResourceGroupsTaggingAPI) GetResourcesRequest(input *GetResourcesInput)
 // GetResources API operation for AWS Resource Groups Tagging API.
 //
 // Returns all the tagged or previously tagged resources that are located in
-// the specified region for the AWS account. You can optionally specify filters
-// (tags and resource types) in your request, depending on what information
-// you want returned. The response includes all tags that are associated with
-// the requested resources.
+// the specified Amazon Web Services Region for the account.
 //
-// You can check the PaginationToken response parameter to determine if a query
-// completed. Queries can occasionally return fewer results on a page than allowed.
-// The PaginationToken response parameter value is null only when there are
-// no more results to display.
+// Depending on what information you want returned, you can also specify the
+// following:
+//
+//   - Filters that specify what tags and resource types you want returned.
+//     The response includes all tags that are associated with the requested
+//     resources.
+//
+//   - Information about compliance with the account's effective tag policy.
+//     For more information on tag policies, see Tag Policies (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html)
+//     in the Organizations User Guide.
+//
+// This operation supports pagination, where the response can be sent in multiple
+// pages. You should check the PaginationToken response parameter to determine
+// if there are additional results available to return. Repeat the query, passing
+// the PaginationToken response parameter value as an input to the next request
+// until you recieve a null value. A null value for PaginationToken indicates
+// that there are no more results waiting to be returned.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -78,21 +395,34 @@ func (c *ResourceGroupsTaggingAPI) GetResourcesRequest(input *GetResourcesInput)
 // See the AWS API reference guide for AWS Resource Groups Tagging API's
 // API operation GetResources for usage and error information.
 //
-// Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
-//   A parameter is missing or a malformed string or invalid or out-of-range value
-//   was supplied for the request parameter.
+// Returned Error Types:
 //
-//   * ErrCodeThrottledException "ThrottledException"
-//   The request was denied to limit the frequency of submitted requests.
+//   - InvalidParameterException
+//     This error indicates one of the following:
 //
-//   * ErrCodeInternalServiceException "InternalServiceException"
-//   The request processing failed because of an unknown error, exception, or
-//   failure. You can retry the request.
+//   - A parameter is missing.
 //
-//   * ErrCodePaginationTokenExpiredException "PaginationTokenExpiredException"
-//   A PaginationToken is valid for a maximum of 15 minutes. Your request was
-//   denied because the specified PaginationToken has expired.
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
+//
+//   - PaginationTokenExpiredException
+//     A PaginationToken is valid for a maximum of 15 minutes. Your request was
+//     denied because the specified PaginationToken has expired.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetResources
 func (c *ResourceGroupsTaggingAPI) GetResources(input *GetResourcesInput) (*GetResourcesOutput, error) {
@@ -124,15 +454,14 @@ func (c *ResourceGroupsTaggingAPI) GetResourcesWithContext(ctx aws.Context, inpu
 //
 // Note: This operation can generate multiple requests to a service.
 //
-//    // Example iterating over at most 3 pages of a GetResources operation.
-//    pageNum := 0
-//    err := client.GetResourcesPages(params,
-//        func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
-//            pageNum++
-//            fmt.Println(page)
-//            return pageNum <= 3
-//        })
-//
+//	// Example iterating over at most 3 pages of a GetResources operation.
+//	pageNum := 0
+//	err := client.GetResourcesPages(params,
+//	    func(page *resourcegroupstaggingapi.GetResourcesOutput, lastPage bool) bool {
+//	        pageNum++
+//	        fmt.Println(page)
+//	        return pageNum <= 3
+//	    })
 func (c *ResourceGroupsTaggingAPI) GetResourcesPages(input *GetResourcesInput, fn func(*GetResourcesOutput, bool) bool) error {
 	return c.GetResourcesPagesWithContext(aws.BackgroundContext(), input, fn)
 }
@@ -159,10 +488,12 @@ func (c *ResourceGroupsTaggingAPI) GetResourcesPagesWithContext(ctx aws.Context,
 		},
 	}
 
-	cont := true
-	for p.Next() && cont {
-		cont = fn(p.Page().(*GetResourcesOutput), !p.HasNextPage())
+	for p.Next() {
+		if !fn(p.Page().(*GetResourcesOutput), !p.HasNextPage()) {
+			break
+		}
 	}
+
 	return p.Err()
 }
 
@@ -182,14 +513,13 @@ const opGetTagKeys = "GetTagKeys"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the GetTagKeysRequest method.
+//	req, resp := client.GetTagKeysRequest(params)
 //
-//    // Example sending a request using the GetTagKeysRequest method.
-//    req, resp := client.GetTagKeysRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetTagKeys
 func (c *ResourceGroupsTaggingAPI) GetTagKeysRequest(input *GetTagKeysInput) (req *request.Request, output *GetTagKeysOutput) {
@@ -216,7 +546,15 @@ func (c *ResourceGroupsTaggingAPI) GetTagKeysRequest(input *GetTagKeysInput) (re
 
 // GetTagKeys API operation for AWS Resource Groups Tagging API.
 //
-// Returns all tag keys in the specified region for the AWS account.
+// Returns all tag keys currently in use in the specified Amazon Web Services
+// Region for the calling account.
+//
+// This operation supports pagination, where the response can be sent in multiple
+// pages. You should check the PaginationToken response parameter to determine
+// if there are additional results available to return. Repeat the query, passing
+// the PaginationToken response parameter value as an input to the next request
+// until you recieve a null value. A null value for PaginationToken indicates
+// that there are no more results waiting to be returned.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -225,21 +563,34 @@ func (c *ResourceGroupsTaggingAPI) GetTagKeysRequest(input *GetTagKeysInput) (re
 // See the AWS API reference guide for AWS Resource Groups Tagging API's
 // API operation GetTagKeys for usage and error information.
 //
-// Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
-//   A parameter is missing or a malformed string or invalid or out-of-range value
-//   was supplied for the request parameter.
+// Returned Error Types:
 //
-//   * ErrCodeThrottledException "ThrottledException"
-//   The request was denied to limit the frequency of submitted requests.
+//   - InvalidParameterException
+//     This error indicates one of the following:
 //
-//   * ErrCodeInternalServiceException "InternalServiceException"
-//   The request processing failed because of an unknown error, exception, or
-//   failure. You can retry the request.
+//   - A parameter is missing.
 //
-//   * ErrCodePaginationTokenExpiredException "PaginationTokenExpiredException"
-//   A PaginationToken is valid for a maximum of 15 minutes. Your request was
-//   denied because the specified PaginationToken has expired.
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
+//
+//   - PaginationTokenExpiredException
+//     A PaginationToken is valid for a maximum of 15 minutes. Your request was
+//     denied because the specified PaginationToken has expired.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetTagKeys
 func (c *ResourceGroupsTaggingAPI) GetTagKeys(input *GetTagKeysInput) (*GetTagKeysOutput, error) {
@@ -271,15 +622,14 @@ func (c *ResourceGroupsTaggingAPI) GetTagKeysWithContext(ctx aws.Context, input 
 //
 // Note: This operation can generate multiple requests to a service.
 //
-//    // Example iterating over at most 3 pages of a GetTagKeys operation.
-//    pageNum := 0
-//    err := client.GetTagKeysPages(params,
-//        func(page *resourcegroupstaggingapi.GetTagKeysOutput, lastPage bool) bool {
-//            pageNum++
-//            fmt.Println(page)
-//            return pageNum <= 3
-//        })
-//
+//	// Example iterating over at most 3 pages of a GetTagKeys operation.
+//	pageNum := 0
+//	err := client.GetTagKeysPages(params,
+//	    func(page *resourcegroupstaggingapi.GetTagKeysOutput, lastPage bool) bool {
+//	        pageNum++
+//	        fmt.Println(page)
+//	        return pageNum <= 3
+//	    })
 func (c *ResourceGroupsTaggingAPI) GetTagKeysPages(input *GetTagKeysInput, fn func(*GetTagKeysOutput, bool) bool) error {
 	return c.GetTagKeysPagesWithContext(aws.BackgroundContext(), input, fn)
 }
@@ -306,10 +656,12 @@ func (c *ResourceGroupsTaggingAPI) GetTagKeysPagesWithContext(ctx aws.Context, i
 		},
 	}
 
-	cont := true
-	for p.Next() && cont {
-		cont = fn(p.Page().(*GetTagKeysOutput), !p.HasNextPage())
+	for p.Next() {
+		if !fn(p.Page().(*GetTagKeysOutput), !p.HasNextPage()) {
+			break
+		}
 	}
+
 	return p.Err()
 }
 
@@ -329,14 +681,13 @@ const opGetTagValues = "GetTagValues"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the GetTagValuesRequest method.
+//	req, resp := client.GetTagValuesRequest(params)
 //
-//    // Example sending a request using the GetTagValuesRequest method.
-//    req, resp := client.GetTagValuesRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetTagValues
 func (c *ResourceGroupsTaggingAPI) GetTagValuesRequest(input *GetTagValuesInput) (req *request.Request, output *GetTagValuesOutput) {
@@ -363,8 +714,15 @@ func (c *ResourceGroupsTaggingAPI) GetTagValuesRequest(input *GetTagValuesInput)
 
 // GetTagValues API operation for AWS Resource Groups Tagging API.
 //
-// Returns all tag values for the specified key in the specified region for
-// the AWS account.
+// Returns all tag values for the specified key that are used in the specified
+// Amazon Web Services Region for the calling account.
+//
+// This operation supports pagination, where the response can be sent in multiple
+// pages. You should check the PaginationToken response parameter to determine
+// if there are additional results available to return. Repeat the query, passing
+// the PaginationToken response parameter value as an input to the next request
+// until you recieve a null value. A null value for PaginationToken indicates
+// that there are no more results waiting to be returned.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -373,21 +731,34 @@ func (c *ResourceGroupsTaggingAPI) GetTagValuesRequest(input *GetTagValuesInput)
 // See the AWS API reference guide for AWS Resource Groups Tagging API's
 // API operation GetTagValues for usage and error information.
 //
-// Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
-//   A parameter is missing or a malformed string or invalid or out-of-range value
-//   was supplied for the request parameter.
+// Returned Error Types:
 //
-//   * ErrCodeThrottledException "ThrottledException"
-//   The request was denied to limit the frequency of submitted requests.
+//   - InvalidParameterException
+//     This error indicates one of the following:
 //
-//   * ErrCodeInternalServiceException "InternalServiceException"
-//   The request processing failed because of an unknown error, exception, or
-//   failure. You can retry the request.
+//   - A parameter is missing.
 //
-//   * ErrCodePaginationTokenExpiredException "PaginationTokenExpiredException"
-//   A PaginationToken is valid for a maximum of 15 minutes. Your request was
-//   denied because the specified PaginationToken has expired.
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
+//
+//   - PaginationTokenExpiredException
+//     A PaginationToken is valid for a maximum of 15 minutes. Your request was
+//     denied because the specified PaginationToken has expired.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/GetTagValues
 func (c *ResourceGroupsTaggingAPI) GetTagValues(input *GetTagValuesInput) (*GetTagValuesOutput, error) {
@@ -419,15 +790,14 @@ func (c *ResourceGroupsTaggingAPI) GetTagValuesWithContext(ctx aws.Context, inpu
 //
 // Note: This operation can generate multiple requests to a service.
 //
-//    // Example iterating over at most 3 pages of a GetTagValues operation.
-//    pageNum := 0
-//    err := client.GetTagValuesPages(params,
-//        func(page *resourcegroupstaggingapi.GetTagValuesOutput, lastPage bool) bool {
-//            pageNum++
-//            fmt.Println(page)
-//            return pageNum <= 3
-//        })
-//
+//	// Example iterating over at most 3 pages of a GetTagValues operation.
+//	pageNum := 0
+//	err := client.GetTagValuesPages(params,
+//	    func(page *resourcegroupstaggingapi.GetTagValuesOutput, lastPage bool) bool {
+//	        pageNum++
+//	        fmt.Println(page)
+//	        return pageNum <= 3
+//	    })
 func (c *ResourceGroupsTaggingAPI) GetTagValuesPages(input *GetTagValuesInput, fn func(*GetTagValuesOutput, bool) bool) error {
 	return c.GetTagValuesPagesWithContext(aws.BackgroundContext(), input, fn)
 }
@@ -454,11 +824,143 @@ func (c *ResourceGroupsTaggingAPI) GetTagValuesPagesWithContext(ctx aws.Context,
 		},
 	}
 
-	cont := true
-	for p.Next() && cont {
-		cont = fn(p.Page().(*GetTagValuesOutput), !p.HasNextPage())
+	for p.Next() {
+		if !fn(p.Page().(*GetTagValuesOutput), !p.HasNextPage()) {
+			break
+		}
 	}
+
 	return p.Err()
+}
+
+const opStartReportCreation = "StartReportCreation"
+
+// StartReportCreationRequest generates a "aws/request.Request" representing the
+// client's request for the StartReportCreation operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See StartReportCreation for more information on using the StartReportCreation
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//	// Example sending a request using the StartReportCreationRequest method.
+//	req, resp := client.StartReportCreationRequest(params)
+//
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/StartReportCreation
+func (c *ResourceGroupsTaggingAPI) StartReportCreationRequest(input *StartReportCreationInput) (req *request.Request, output *StartReportCreationOutput) {
+	op := &request.Operation{
+		Name:       opStartReportCreation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &StartReportCreationInput{}
+	}
+
+	output = &StartReportCreationOutput{}
+	req = c.newRequest(op, input, output)
+	req.Handlers.Unmarshal.Swap(jsonrpc.UnmarshalHandler.Name, protocol.UnmarshalDiscardBodyHandler)
+	return
+}
+
+// StartReportCreation API operation for AWS Resource Groups Tagging API.
+//
+// Generates a report that lists all tagged resources in the accounts across
+// your organization and tells whether each resource is compliant with the effective
+// tag policy. Compliance data is refreshed daily. The report is generated asynchronously.
+//
+// The generated report is saved to the following location:
+//
+// s3://example-bucket/AwsTagPolicies/o-exampleorgid/YYYY-MM-ddTHH:mm:ssZ/report.csv
+//
+// You can call this operation only from the organization's management account
+// and from the us-east-1 Region.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for AWS Resource Groups Tagging API's
+// API operation StartReportCreation for usage and error information.
+//
+// Returned Error Types:
+//
+//   - ConcurrentModificationException
+//     The target of the operation is currently being modified by a different request.
+//     Try again later.
+//
+//   - ConstraintViolationException
+//     The request was denied because performing this operation violates a constraint.
+//
+//     Some of the reasons in the following list might not apply to this specific
+//     operation.
+//
+//   - You must meet the prerequisites for using tag policies. For information,
+//     see Prerequisites and Permissions for Using Tag Policies (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html)
+//     in the Organizations User Guide.
+//
+//   - You must enable the tag policies service principal (tagpolicies.tag.amazonaws.com)
+//     to integrate with Organizations For information, see EnableAWSServiceAccess
+//     (https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
+//
+//   - You must have a tag policy attached to the organization root, an OU,
+//     or an account.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
+//
+//   - InvalidParameterException
+//     This error indicates one of the following:
+//
+//   - A parameter is missing.
+//
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/StartReportCreation
+func (c *ResourceGroupsTaggingAPI) StartReportCreation(input *StartReportCreationInput) (*StartReportCreationOutput, error) {
+	req, out := c.StartReportCreationRequest(input)
+	return out, req.Send()
+}
+
+// StartReportCreationWithContext is the same as StartReportCreation with the addition of
+// the ability to pass a context and additional request options.
+//
+// See StartReportCreation for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *ResourceGroupsTaggingAPI) StartReportCreationWithContext(ctx aws.Context, input *StartReportCreationInput, opts ...request.Option) (*StartReportCreationOutput, error) {
+	req, out := c.StartReportCreationRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
 }
 
 const opTagResources = "TagResources"
@@ -477,14 +979,13 @@ const opTagResources = "TagResources"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the TagResourcesRequest method.
+//	req, resp := client.TagResourcesRequest(params)
 //
-//    // Example sending a request using the TagResourcesRequest method.
-//    req, resp := client.TagResourcesRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/TagResources
 func (c *ResourceGroupsTaggingAPI) TagResourcesRequest(input *TagResourcesInput) (req *request.Request, output *TagResourcesOutput) {
@@ -507,21 +1008,39 @@ func (c *ResourceGroupsTaggingAPI) TagResourcesRequest(input *TagResourcesInput)
 //
 // Applies one or more tags to the specified resources. Note the following:
 //
-//    * Not all resources can have tags. For a list of resources that support
-//    tagging, see Supported Resources (http://docs.aws.amazon.com/ARG/latest/userguide/supported-resources.html)
-//    in the AWS Resource Groups User Guide.
+//   - Not all resources can have tags. For a list of services with resources
+//     that support tagging using this operation, see Services that support the
+//     Resource Groups Tagging API (https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/supported-services.html).
+//     If the resource doesn't yet support this operation, the resource's service
+//     might support tagging using its own API operations. For more information,
+//     refer to the documentation for that service.
 //
-//    * Each resource can have up to 50 tags. For other limits, see Tag Restrictions
-//    (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-restrictions)
-//    in the Amazon EC2 User Guide for Linux Instances.
+//   - Each resource can have up to 50 tags. For other limits, see Tag Naming
+//     and Usage Conventions (https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html#tag-conventions)
+//     in the Amazon Web Services General Reference.
 //
-//    * You can only tag resources that are located in the specified region
-//    for the AWS account.
+//   - You can only tag resources that are located in the specified Amazon
+//     Web Services Region for the Amazon Web Services account.
 //
-//    * To add tags to a resource, you need the necessary permissions for the
-//    service that the resource belongs to as well as permissions for adding
-//    tags. For more information, see Obtaining Permissions for Tagging (http://docs.aws.amazon.com/ARG/latest/userguide/obtaining-permissions-for-tagging.html)
-//    in the AWS Resource Groups User Guide.
+//   - To add tags to a resource, you need the necessary permissions for the
+//     service that the resource belongs to as well as permissions for adding
+//     tags. For more information, see the documentation for each service.
+//
+// Do not store personally identifiable information (PII) or other confidential
+// or sensitive information in tags. We use tags to provide you with billing
+// and administration services. Tags are not intended to be used for private
+// or sensitive data.
+//
+// # Minimum permissions
+//
+// In addition to the tag:TagResources permission required by this operation,
+// you must also have the tagging permission defined by the service that created
+// the resource. For example, to tag an Amazon EC2 instance using the TagResources
+// operation, you must have both of the following permissions:
+//
+//   - tag:TagResource
+//
+//   - ec2:CreateTags
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -530,17 +1049,30 @@ func (c *ResourceGroupsTaggingAPI) TagResourcesRequest(input *TagResourcesInput)
 // See the AWS API reference guide for AWS Resource Groups Tagging API's
 // API operation TagResources for usage and error information.
 //
-// Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
-//   A parameter is missing or a malformed string or invalid or out-of-range value
-//   was supplied for the request parameter.
+// Returned Error Types:
 //
-//   * ErrCodeThrottledException "ThrottledException"
-//   The request was denied to limit the frequency of submitted requests.
+//   - InvalidParameterException
+//     This error indicates one of the following:
 //
-//   * ErrCodeInternalServiceException "InternalServiceException"
-//   The request processing failed because of an unknown error, exception, or
-//   failure. You can retry the request.
+//   - A parameter is missing.
+//
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/TagResources
 func (c *ResourceGroupsTaggingAPI) TagResources(input *TagResourcesInput) (*TagResourcesOutput, error) {
@@ -580,14 +1112,13 @@ const opUntagResources = "UntagResources"
 // This method is useful when you want to inject custom logic or configuration
 // into the SDK's request lifecycle. Such as custom headers, or retry logic.
 //
+//	// Example sending a request using the UntagResourcesRequest method.
+//	req, resp := client.UntagResourcesRequest(params)
 //
-//    // Example sending a request using the UntagResourcesRequest method.
-//    req, resp := client.UntagResourcesRequest(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
+//	err := req.Send()
+//	if err == nil { // resp is now filled
+//	    fmt.Println(resp)
+//	}
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/UntagResources
 func (c *ResourceGroupsTaggingAPI) UntagResourcesRequest(input *UntagResourcesInput) (req *request.Request, output *UntagResourcesOutput) {
@@ -613,13 +1144,25 @@ func (c *ResourceGroupsTaggingAPI) UntagResourcesRequest(input *UntagResourcesIn
 // operation succeeds even if you attempt to remove tags from a resource that
 // were already removed. Note the following:
 //
-//    * To remove tags from a resource, you need the necessary permissions for
-//    the service that the resource belongs to as well as permissions for removing
-//    tags. For more information, see Obtaining Permissions for Tagging (http://docs.aws.amazon.com/ARG/latest/userguide/obtaining-permissions-for-tagging.html)
-//    in the AWS Resource Groups User Guide.
+//   - To remove tags from a resource, you need the necessary permissions for
+//     the service that the resource belongs to as well as permissions for removing
+//     tags. For more information, see the documentation for the service whose
+//     resource you want to untag.
 //
-//    * You can only tag resources that are located in the specified region
-//    for the AWS account.
+//   - You can only tag resources that are located in the specified Amazon
+//     Web Services Region for the calling Amazon Web Services account.
+//
+// # Minimum permissions
+//
+// In addition to the tag:UntagResources permission required by this operation,
+// you must also have the remove tags permission defined by the service that
+// created the resource. For example, to remove the tags from an Amazon EC2
+// instance using the UntagResources operation, you must have both of the following
+// permissions:
+//
+//   - tag:UntagResource
+//
+//   - ec2:DeleteTags
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -628,17 +1171,30 @@ func (c *ResourceGroupsTaggingAPI) UntagResourcesRequest(input *UntagResourcesIn
 // See the AWS API reference guide for AWS Resource Groups Tagging API's
 // API operation UntagResources for usage and error information.
 //
-// Returned Error Codes:
-//   * ErrCodeInvalidParameterException "InvalidParameterException"
-//   A parameter is missing or a malformed string or invalid or out-of-range value
-//   was supplied for the request parameter.
+// Returned Error Types:
 //
-//   * ErrCodeThrottledException "ThrottledException"
-//   The request was denied to limit the frequency of submitted requests.
+//   - InvalidParameterException
+//     This error indicates one of the following:
 //
-//   * ErrCodeInternalServiceException "InternalServiceException"
-//   The request processing failed because of an unknown error, exception, or
-//   failure. You can retry the request.
+//   - A parameter is missing.
+//
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+//
+//   - ThrottledException
+//     The request was denied to limit the frequency of submitted requests.
+//
+//   - InternalServiceException
+//     The request processing failed because of an unknown error, exception, or
+//     failure. You can retry the request.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/resourcegroupstaggingapi-2017-01-26/UntagResources
 func (c *ResourceGroupsTaggingAPI) UntagResources(input *UntagResourcesInput) (*UntagResourcesOutput, error) {
@@ -662,13 +1218,314 @@ func (c *ResourceGroupsTaggingAPI) UntagResourcesWithContext(ctx aws.Context, in
 	return out, req.Send()
 }
 
-// Details of the common errors that all actions return.
+// Information that shows whether a resource is compliant with the effective
+// tag policy, including details on any noncompliant tag keys.
+type ComplianceDetails struct {
+	_ struct{} `type:"structure"`
+
+	// Whether a resource is compliant with the effective tag policy.
+	ComplianceStatus *bool `type:"boolean"`
+
+	// These are keys defined in the effective policy that are on the resource with
+	// either incorrect case treatment or noncompliant values.
+	KeysWithNoncompliantValues []*string `type:"list"`
+
+	// These tag keys on the resource are noncompliant with the effective tag policy.
+	NoncompliantKeys []*string `type:"list"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ComplianceDetails) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ComplianceDetails) GoString() string {
+	return s.String()
+}
+
+// SetComplianceStatus sets the ComplianceStatus field's value.
+func (s *ComplianceDetails) SetComplianceStatus(v bool) *ComplianceDetails {
+	s.ComplianceStatus = &v
+	return s
+}
+
+// SetKeysWithNoncompliantValues sets the KeysWithNoncompliantValues field's value.
+func (s *ComplianceDetails) SetKeysWithNoncompliantValues(v []*string) *ComplianceDetails {
+	s.KeysWithNoncompliantValues = v
+	return s
+}
+
+// SetNoncompliantKeys sets the NoncompliantKeys field's value.
+func (s *ComplianceDetails) SetNoncompliantKeys(v []*string) *ComplianceDetails {
+	s.NoncompliantKeys = v
+	return s
+}
+
+// The target of the operation is currently being modified by a different request.
+// Try again later.
+type ConcurrentModificationException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"Message" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ConcurrentModificationException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ConcurrentModificationException) GoString() string {
+	return s.String()
+}
+
+func newErrorConcurrentModificationException(v protocol.ResponseMetadata) error {
+	return &ConcurrentModificationException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *ConcurrentModificationException) Code() string {
+	return "ConcurrentModificationException"
+}
+
+// Message returns the exception's message.
+func (s *ConcurrentModificationException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *ConcurrentModificationException) OrigErr() error {
+	return nil
+}
+
+func (s *ConcurrentModificationException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *ConcurrentModificationException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *ConcurrentModificationException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// The request was denied because performing this operation violates a constraint.
+//
+// Some of the reasons in the following list might not apply to this specific
+// operation.
+//
+//   - You must meet the prerequisites for using tag policies. For information,
+//     see Prerequisites and Permissions for Using Tag Policies (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html)
+//     in the Organizations User Guide.
+//
+//   - You must enable the tag policies service principal (tagpolicies.tag.amazonaws.com)
+//     to integrate with Organizations For information, see EnableAWSServiceAccess
+//     (https://docs.aws.amazon.com/organizations/latest/APIReference/API_EnableAWSServiceAccess.html).
+//
+//   - You must have a tag policy attached to the organization root, an OU,
+//     or an account.
+type ConstraintViolationException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"Message" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ConstraintViolationException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ConstraintViolationException) GoString() string {
+	return s.String()
+}
+
+func newErrorConstraintViolationException(v protocol.ResponseMetadata) error {
+	return &ConstraintViolationException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *ConstraintViolationException) Code() string {
+	return "ConstraintViolationException"
+}
+
+// Message returns the exception's message.
+func (s *ConstraintViolationException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *ConstraintViolationException) OrigErr() error {
+	return nil
+}
+
+func (s *ConstraintViolationException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *ConstraintViolationException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *ConstraintViolationException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+type DescribeReportCreationInput struct {
+	_ struct{} `type:"structure"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s DescribeReportCreationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s DescribeReportCreationInput) GoString() string {
+	return s.String()
+}
+
+type DescribeReportCreationOutput struct {
+	_ struct{} `type:"structure"`
+
+	// Details of the common errors that all operations return.
+	ErrorMessage *string `type:"string"`
+
+	// The path to the Amazon S3 bucket where the report was stored on creation.
+	S3Location *string `type:"string"`
+
+	// Reports the status of the operation.
+	//
+	// The operation status can be one of the following:
+	//
+	//    * RUNNING - Report creation is in progress.
+	//
+	//    * SUCCEEDED - Report creation is complete. You can open the report from
+	//    the Amazon S3 bucket that you specified when you ran StartReportCreation.
+	//
+	//    * FAILED - Report creation timed out or the Amazon S3 bucket is not accessible.
+	//
+	//    * NO REPORT - No report was generated in the last 90 days.
+	Status *string `type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s DescribeReportCreationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s DescribeReportCreationOutput) GoString() string {
+	return s.String()
+}
+
+// SetErrorMessage sets the ErrorMessage field's value.
+func (s *DescribeReportCreationOutput) SetErrorMessage(v string) *DescribeReportCreationOutput {
+	s.ErrorMessage = &v
+	return s
+}
+
+// SetS3Location sets the S3Location field's value.
+func (s *DescribeReportCreationOutput) SetS3Location(v string) *DescribeReportCreationOutput {
+	s.S3Location = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *DescribeReportCreationOutput) SetStatus(v string) *DescribeReportCreationOutput {
+	s.Status = &v
+	return s
+}
+
+// Information about the errors that are returned for each failed resource.
+// This information can include InternalServiceException and InvalidParameterException
+// errors. It can also include any valid error code returned by the Amazon Web
+// Services service that hosts the resource that the ARN key represents.
+//
+// The following are common error codes that you might receive from other Amazon
+// Web Services services:
+//
+//   - InternalServiceException – This can mean that the Resource Groups
+//     Tagging API didn't receive a response from another Amazon Web Services
+//     service. It can also mean that the resource type in the request is not
+//     supported by the Resource Groups Tagging API. In these cases, it's safe
+//     to retry the request and then call GetResources (https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_GetResources.html)
+//     to verify the changes.
+//
+//   - AccessDeniedException – This can mean that you need permission to
+//     call the tagging operations in the Amazon Web Services service that contains
+//     the resource. For example, to use the Resource Groups Tagging API to tag
+//     a Amazon CloudWatch alarm resource, you need permission to call both TagResources
+//     (https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_TagResources.html)
+//     and TagResource (https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_TagResource.html)
+//     in the CloudWatch API.
+//
+// For more information on errors that are generated from other Amazon Web Services
+// services, see the documentation for that service.
 type FailureInfo struct {
 	_ struct{} `type:"structure"`
 
 	// The code of the common error. Valid values include InternalServiceException,
-	// InvalidParameterException, and any valid error code returned by the AWS service
-	// that hosts the resource that you want to tag.
+	// InvalidParameterException, and any valid error code returned by the Amazon
+	// Web Services service that hosts the resource that you want to tag.
 	ErrorCode *string `type:"string" enum:"ErrorCode"`
 
 	// The message of the common error.
@@ -678,12 +1535,20 @@ type FailureInfo struct {
 	StatusCode *int64 `type:"integer"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s FailureInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s FailureInfo) GoString() string {
 	return s.String()
 }
@@ -706,72 +1571,282 @@ func (s *FailureInfo) SetStatusCode(v int64) *FailureInfo {
 	return s
 }
 
+type GetComplianceSummaryInput struct {
+	_ struct{} `type:"structure"`
+
+	// Specifies a list of attributes to group the counts of noncompliant resources
+	// by. If supplied, the counts are sorted by those attributes.
+	GroupBy []*string `type:"list" enum:"GroupByAttribute"`
+
+	// Specifies the maximum number of results to be returned in each page. A query
+	// can return fewer than this maximum, even if there are more results still
+	// to return. You should always check the PaginationToken response value to
+	// see if there are more results. You can specify a minimum of 1 and a maximum
+	// value of 100.
+	MaxResults *int64 `min:"1" type:"integer"`
+
+	// Specifies a PaginationToken response value from a previous request to indicate
+	// that you want the next page of results. Leave this parameter empty in your
+	// initial request.
+	PaginationToken *string `type:"string"`
+
+	// Specifies a list of Amazon Web Services Regions to limit the output to. If
+	// you use this parameter, the count of returned noncompliant resources includes
+	// only resources in the specified Regions.
+	RegionFilters []*string `min:"1" type:"list"`
+
+	// Specifies that you want the response to include information for only resources
+	// of the specified types. The format of each resource type is service[:resourceType].
+	// For example, specifying a resource type of ec2 returns all Amazon EC2 resources
+	// (which includes EC2 instances). Specifying a resource type of ec2:instance
+	// returns only EC2 instances.
+	//
+	// The string for each service name and resource type is the same as that embedded
+	// in a resource's Amazon Resource Name (ARN). Consult the Amazon Web Services
+	// General Reference (https://docs.aws.amazon.com/general/latest/gr/) for the
+	// following:
+	//
+	//    * For a list of service name strings, see Amazon Web Services Service
+	//    Namespaces (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces).
+	//
+	//    * For resource type strings, see Example ARNs (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arns-syntax).
+	//
+	//    * For more information about ARNs, see Amazon Resource Names (ARNs) and
+	//    Amazon Web Services Service Namespaces (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html).
+	//
+	// You can specify multiple resource types by using a comma separated array.
+	// The array can include up to 100 items. Note that the length constraint requirement
+	// applies to each resource type filter.
+	ResourceTypeFilters []*string `type:"list"`
+
+	// Specifies that you want the response to include information for only resources
+	// that have tags with the specified tag keys. If you use this parameter, the
+	// count of returned noncompliant resources includes only resources that have
+	// the specified tag keys.
+	TagKeyFilters []*string `min:"1" type:"list"`
+
+	// Specifies target identifiers (usually, specific account IDs) to limit the
+	// output by. If you use this parameter, the count of returned noncompliant
+	// resources includes only resources with the specified target IDs.
+	TargetIdFilters []*string `min:"1" type:"list"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s GetComplianceSummaryInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s GetComplianceSummaryInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *GetComplianceSummaryInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "GetComplianceSummaryInput"}
+	if s.MaxResults != nil && *s.MaxResults < 1 {
+		invalidParams.Add(request.NewErrParamMinValue("MaxResults", 1))
+	}
+	if s.RegionFilters != nil && len(s.RegionFilters) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("RegionFilters", 1))
+	}
+	if s.TagKeyFilters != nil && len(s.TagKeyFilters) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("TagKeyFilters", 1))
+	}
+	if s.TargetIdFilters != nil && len(s.TargetIdFilters) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("TargetIdFilters", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetGroupBy sets the GroupBy field's value.
+func (s *GetComplianceSummaryInput) SetGroupBy(v []*string) *GetComplianceSummaryInput {
+	s.GroupBy = v
+	return s
+}
+
+// SetMaxResults sets the MaxResults field's value.
+func (s *GetComplianceSummaryInput) SetMaxResults(v int64) *GetComplianceSummaryInput {
+	s.MaxResults = &v
+	return s
+}
+
+// SetPaginationToken sets the PaginationToken field's value.
+func (s *GetComplianceSummaryInput) SetPaginationToken(v string) *GetComplianceSummaryInput {
+	s.PaginationToken = &v
+	return s
+}
+
+// SetRegionFilters sets the RegionFilters field's value.
+func (s *GetComplianceSummaryInput) SetRegionFilters(v []*string) *GetComplianceSummaryInput {
+	s.RegionFilters = v
+	return s
+}
+
+// SetResourceTypeFilters sets the ResourceTypeFilters field's value.
+func (s *GetComplianceSummaryInput) SetResourceTypeFilters(v []*string) *GetComplianceSummaryInput {
+	s.ResourceTypeFilters = v
+	return s
+}
+
+// SetTagKeyFilters sets the TagKeyFilters field's value.
+func (s *GetComplianceSummaryInput) SetTagKeyFilters(v []*string) *GetComplianceSummaryInput {
+	s.TagKeyFilters = v
+	return s
+}
+
+// SetTargetIdFilters sets the TargetIdFilters field's value.
+func (s *GetComplianceSummaryInput) SetTargetIdFilters(v []*string) *GetComplianceSummaryInput {
+	s.TargetIdFilters = v
+	return s
+}
+
+type GetComplianceSummaryOutput struct {
+	_ struct{} `type:"structure"`
+
+	// A string that indicates that there is more data available than this response
+	// contains. To receive the next part of the response, specify this response
+	// value as the PaginationToken value in the request for the next page.
+	PaginationToken *string `type:"string"`
+
+	// A table that shows counts of noncompliant resources.
+	SummaryList []*Summary `type:"list"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s GetComplianceSummaryOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s GetComplianceSummaryOutput) GoString() string {
+	return s.String()
+}
+
+// SetPaginationToken sets the PaginationToken field's value.
+func (s *GetComplianceSummaryOutput) SetPaginationToken(v string) *GetComplianceSummaryOutput {
+	s.PaginationToken = &v
+	return s
+}
+
+// SetSummaryList sets the SummaryList field's value.
+func (s *GetComplianceSummaryOutput) SetSummaryList(v []*Summary) *GetComplianceSummaryOutput {
+	s.SummaryList = v
+	return s
+}
+
 type GetResourcesInput struct {
 	_ struct{} `type:"structure"`
 
-	// A string that indicates that additional data is available. Leave this value
-	// empty for your initial request. If the response includes a PaginationToken,
-	// use that string for this value to request an additional page of data.
+	// Specifies whether to exclude resources that are compliant with the tag policy.
+	// Set this to true if you are interested in retrieving information on noncompliant
+	// resources only.
+	//
+	// You can use this parameter only if the IncludeComplianceDetails parameter
+	// is also set to true.
+	ExcludeCompliantResources *bool `type:"boolean"`
+
+	// Specifies whether to include details regarding the compliance with the effective
+	// tag policy. Set this to true to determine whether resources are compliant
+	// with the tag policy and to get details.
+	IncludeComplianceDetails *bool `type:"boolean"`
+
+	// Specifies a PaginationToken response value from a previous request to indicate
+	// that you want the next page of results. Leave this parameter empty in your
+	// initial request.
 	PaginationToken *string `type:"string"`
 
-	// The constraints on the resources that you want returned. The format of each
-	// resource type is service[:resourceType]. For example, specifying a resource
-	// type of ec2 returns all Amazon EC2 resources (which includes EC2 instances).
-	// Specifying a resource type of ec2:instance returns only EC2 instances.
+	// Specifies a list of ARNs of resources for which you want to retrieve tag
+	// data. You can't specify both this parameter and any of the pagination parameters
+	// (ResourcesPerPage, TagsPerPage, PaginationToken) in the same request. If
+	// you specify both, you get an Invalid Parameter exception.
+	//
+	// If a resource specified by this parameter doesn't exist, it doesn't generate
+	// an error; it simply isn't included in the response.
+	//
+	// An ARN (Amazon Resource Name) uniquely identifies a resource. For more information,
+	// see Amazon Resource Names (ARNs) and Amazon Web Services Service Namespaces
+	// (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	// in the Amazon Web Services General Reference.
+	ResourceARNList []*string `min:"1" type:"list"`
+
+	// Specifies the resource types that you want included in the response. The
+	// format of each resource type is service[:resourceType]. For example, specifying
+	// a resource type of ec2 returns all Amazon EC2 resources (which includes EC2
+	// instances). Specifying a resource type of ec2:instance returns only EC2 instances.
 	//
 	// The string for each service name and resource type is the same as that embedded
-	// in a resource's Amazon Resource Name (ARN). Consult the AWS General Reference
-	// for the following:
-	//
-	//    * For a list of service name strings, see AWS Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces).
-	//
-	//    * For resource type strings, see Example ARNs (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arns-syntax).
-	//
-	//    * For more information about ARNs, see Amazon Resource Names (ARNs) and
-	//    AWS Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html).
+	// in a resource's Amazon Resource Name (ARN). For the list of services whose
+	// resources you can use in this parameter, see Services that support the Resource
+	// Groups Tagging API (https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/supported-services.html).
 	//
 	// You can specify multiple resource types by using an array. The array can
 	// include up to 100 items. Note that the length constraint requirement applies
-	// to each resource type filter.
+	// to each resource type filter. For example, the following string would limit
+	// the response to only Amazon EC2 instances, Amazon S3 buckets, or any Audit
+	// Manager resource:
+	//
+	// ec2:instance,s3:bucket,auditmanager
 	ResourceTypeFilters []*string `type:"list"`
 
-	// A limit that restricts the number of resources returned by GetResources in
-	// paginated output. You can set ResourcesPerPage to a minimum of 1 item and
-	// the maximum of 100 items.
+	// Specifies the maximum number of results to be returned in each page. A query
+	// can return fewer than this maximum, even if there are more results still
+	// to return. You should always check the PaginationToken response value to
+	// see if there are more results. You can specify a minimum of 1 and a maximum
+	// value of 100.
 	ResourcesPerPage *int64 `type:"integer"`
 
-	// A list of TagFilters (keys and values). Each TagFilter specified must contain
-	// a key with values as optional. A request can include up to 50 keys, and each
-	// key can include up to 20 values.
+	// Specifies a list of TagFilters (keys and values) to restrict the output to
+	// only those resources that have tags with the specified keys and, if included,
+	// the specified values. Each TagFilter must contain a key with values optional.
+	// A request can include up to 50 keys, and each key can include up to 20 values.
 	//
 	// Note the following when deciding how to use TagFilters:
 	//
-	//    * If you do specify a TagFilter, the response returns only those resources
-	//    that are currently associated with the specified tag.
-	//
 	//    * If you don't specify a TagFilter, the response includes all resources
-	//    that were ever associated with tags. Resources that currently don't have
-	//    associated tags are shown with an empty tag set, like this: "Tags": [].
+	//    that are currently tagged or ever had a tag. Resources that currently
+	//    don't have tags are shown with an empty tag set, like this: "Tags": [].
 	//
 	//    * If you specify more than one filter in a single request, the response
-	//    returns only those resources that satisfy all specified filters.
+	//    returns only those resources that satisfy all filters.
 	//
 	//    * If you specify a filter that contains more than one value for a key,
 	//    the response returns resources that match any of the specified values
 	//    for that key.
 	//
-	//    * If you don't specify any values for a key, the response returns resources
-	//    that are tagged with that key irrespective of the value. For example,
-	//    for filters: filter1 = {key1, {value1}}, filter2 = {key2, {value2,value3,value4}}
-	//    , filter3 = {key3}: GetResources( {filter1} ) returns resources tagged
-	//    with key1=value1 GetResources( {filter2} ) returns resources tagged with
-	//    key2=value2 or key2=value3 or key2=value4 GetResources( {filter3} ) returns
-	//    resources tagged with any tag containing key3 as its tag key, irrespective
-	//    of its value GetResources( {filter1,filter2,filter3} ) returns resources
-	//    tagged with ( key1=value1) and ( key2=value2 or key2=value3 or key2=value4)
-	//    and (key3, irrespective of the value)
+	//    * If you don't specify a value for a key, the response returns all resources
+	//    that are tagged with that key, with any or no value. For example, for
+	//    the following filters: filter1= {keyA,{value1}}, filter2={keyB,{value2,value3,value4}},
+	//    filter3= {keyC}: GetResources({filter1}) returns resources tagged with
+	//    key1=value1 GetResources({filter2}) returns resources tagged with key2=value2
+	//    or key2=value3 or key2=value4 GetResources({filter3}) returns resources
+	//    tagged with any tag with the key key3, and with any or no value GetResources({filter1,filter2,filter3})
+	//    returns resources tagged with (key1=value1) and (key2=value2 or key2=value3
+	//    or key2=value4) and (key3, any or no value)
 	TagFilters []*TagFilter `type:"list"`
 
+	// Amazon Web Services recommends using ResourcesPerPage instead of this parameter.
+	//
 	// A limit that restricts the number of tags (key and value pairs) returned
 	// by GetResources in paginated output. A resource with no tags is counted as
 	// having one tag (one key and value pair).
@@ -782,22 +1857,30 @@ type GetResourcesInput struct {
 	// in another request to get the remaining data. For example, if you specify
 	// a TagsPerPage of 100 and the account has 22 resources with 10 tags each (meaning
 	// that each resource has 10 key and value pairs), the output will consist of
-	// 3 pages, with the first page displaying the first 10 resources, each with
-	// its 10 tags, the second page displaying the next 10 resources each with its
-	// 10 tags, and the third page displaying the remaining 2 resources, each with
-	// its 10 tags.
+	// three pages. The first page displays the first 10 resources, each with its
+	// 10 tags. The second page displays the next 10 resources, each with its 10
+	// tags. The third page displays the remaining 2 resources, each with its 10
+	// tags.
 	//
-	// You can set TagsPerPage to a minimum of 100 items and the maximum of 500
+	// You can set TagsPerPage to a minimum of 100 items up to a maximum of 500
 	// items.
 	TagsPerPage *int64 `type:"integer"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcesInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcesInput) GoString() string {
 	return s.String()
 }
@@ -805,6 +1888,9 @@ func (s GetResourcesInput) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *GetResourcesInput) Validate() error {
 	invalidParams := request.ErrInvalidParams{Context: "GetResourcesInput"}
+	if s.ResourceARNList != nil && len(s.ResourceARNList) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("ResourceARNList", 1))
+	}
 	if s.TagFilters != nil {
 		for i, v := range s.TagFilters {
 			if v == nil {
@@ -822,9 +1908,27 @@ func (s *GetResourcesInput) Validate() error {
 	return nil
 }
 
+// SetExcludeCompliantResources sets the ExcludeCompliantResources field's value.
+func (s *GetResourcesInput) SetExcludeCompliantResources(v bool) *GetResourcesInput {
+	s.ExcludeCompliantResources = &v
+	return s
+}
+
+// SetIncludeComplianceDetails sets the IncludeComplianceDetails field's value.
+func (s *GetResourcesInput) SetIncludeComplianceDetails(v bool) *GetResourcesInput {
+	s.IncludeComplianceDetails = &v
+	return s
+}
+
 // SetPaginationToken sets the PaginationToken field's value.
 func (s *GetResourcesInput) SetPaginationToken(v string) *GetResourcesInput {
 	s.PaginationToken = &v
+	return s
+}
+
+// SetResourceARNList sets the ResourceARNList field's value.
+func (s *GetResourcesInput) SetResourceARNList(v []*string) *GetResourcesInput {
+	s.ResourceARNList = v
 	return s
 }
 
@@ -855,21 +1959,29 @@ func (s *GetResourcesInput) SetTagsPerPage(v int64) *GetResourcesInput {
 type GetResourcesOutput struct {
 	_ struct{} `type:"structure"`
 
-	// A string that indicates that the response contains more data than can be
-	// returned in a single response. To receive additional data, specify this string
-	// for the PaginationToken value in a subsequent request.
+	// A string that indicates that there is more data available than this response
+	// contains. To receive the next part of the response, specify this response
+	// value as the PaginationToken value in the request for the next page.
 	PaginationToken *string `type:"string"`
 
 	// A list of resource ARNs and the tags (keys and values) associated with each.
 	ResourceTagMappingList []*ResourceTagMapping `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcesOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcesOutput) GoString() string {
 	return s.String()
 }
@@ -889,18 +2001,26 @@ func (s *GetResourcesOutput) SetResourceTagMappingList(v []*ResourceTagMapping) 
 type GetTagKeysInput struct {
 	_ struct{} `type:"structure"`
 
-	// A string that indicates that additional data is available. Leave this value
-	// empty for your initial request. If the response includes a PaginationToken,
-	// use that string for this value to request an additional page of data.
+	// Specifies a PaginationToken response value from a previous request to indicate
+	// that you want the next page of results. Leave this parameter empty in your
+	// initial request.
 	PaginationToken *string `type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagKeysInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagKeysInput) GoString() string {
 	return s.String()
 }
@@ -914,21 +2034,29 @@ func (s *GetTagKeysInput) SetPaginationToken(v string) *GetTagKeysInput {
 type GetTagKeysOutput struct {
 	_ struct{} `type:"structure"`
 
-	// A string that indicates that the response contains more data than can be
-	// returned in a single response. To receive additional data, specify this string
-	// for the PaginationToken value in a subsequent request.
+	// A string that indicates that there is more data available than this response
+	// contains. To receive the next part of the response, specify this response
+	// value as the PaginationToken value in the request for the next page.
 	PaginationToken *string `type:"string"`
 
-	// A list of all tag keys in the AWS account.
+	// A list of all tag keys in the Amazon Web Services account.
 	TagKeys []*string `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagKeysOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagKeysOutput) GoString() string {
 	return s.String()
 }
@@ -948,24 +2076,33 @@ func (s *GetTagKeysOutput) SetTagKeys(v []*string) *GetTagKeysOutput {
 type GetTagValuesInput struct {
 	_ struct{} `type:"structure"`
 
-	// The key for which you want to list all existing values in the specified region
-	// for the AWS account.
+	// Specifies the tag key for which you want to list all existing values that
+	// are currently used in the specified Amazon Web Services Region for the calling
+	// account.
 	//
 	// Key is a required field
 	Key *string `min:"1" type:"string" required:"true"`
 
-	// A string that indicates that additional data is available. Leave this value
-	// empty for your initial request. If the response includes a PaginationToken,
-	// use that string for this value to request an additional page of data.
+	// Specifies a PaginationToken response value from a previous request to indicate
+	// that you want the next page of results. Leave this parameter empty in your
+	// initial request.
 	PaginationToken *string `type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagValuesInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagValuesInput) GoString() string {
 	return s.String()
 }
@@ -1001,21 +2138,30 @@ func (s *GetTagValuesInput) SetPaginationToken(v string) *GetTagValuesInput {
 type GetTagValuesOutput struct {
 	_ struct{} `type:"structure"`
 
-	// A string that indicates that the response contains more data than can be
-	// returned in a single response. To receive additional data, specify this string
-	// for the PaginationToken value in a subsequent request.
+	// A string that indicates that there is more data available than this response
+	// contains. To receive the next part of the response, specify this response
+	// value as the PaginationToken value in the request for the next page.
 	PaginationToken *string `type:"string"`
 
-	// A list of all tag values for the specified key in the AWS account.
+	// A list of all tag values for the specified key currently used in the specified
+	// Amazon Web Services Region for the calling account.
 	TagValues []*string `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagValuesOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetTagValuesOutput) GoString() string {
 	return s.String()
 }
@@ -1032,26 +2178,251 @@ func (s *GetTagValuesOutput) SetTagValues(v []*string) *GetTagValuesOutput {
 	return s
 }
 
+// The request processing failed because of an unknown error, exception, or
+// failure. You can retry the request.
+type InternalServiceException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"Message" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InternalServiceException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InternalServiceException) GoString() string {
+	return s.String()
+}
+
+func newErrorInternalServiceException(v protocol.ResponseMetadata) error {
+	return &InternalServiceException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InternalServiceException) Code() string {
+	return "InternalServiceException"
+}
+
+// Message returns the exception's message.
+func (s *InternalServiceException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InternalServiceException) OrigErr() error {
+	return nil
+}
+
+func (s *InternalServiceException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InternalServiceException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InternalServiceException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// This error indicates one of the following:
+//
+//   - A parameter is missing.
+//
+//   - A malformed string was supplied for the request parameter.
+//
+//   - An out-of-range value was supplied for the request parameter.
+//
+//   - The target ID is invalid, unsupported, or doesn't exist.
+//
+//   - You can't access the Amazon S3 bucket for report storage. For more information,
+//     see Additional Requirements for Organization-wide Tag Compliance Reports
+//     (https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-prereqs.html#bucket-policies-org-report)
+//     in the Organizations User Guide.
+type InvalidParameterException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"Message" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InvalidParameterException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s InvalidParameterException) GoString() string {
+	return s.String()
+}
+
+func newErrorInvalidParameterException(v protocol.ResponseMetadata) error {
+	return &InvalidParameterException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InvalidParameterException) Code() string {
+	return "InvalidParameterException"
+}
+
+// Message returns the exception's message.
+func (s *InvalidParameterException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InvalidParameterException) OrigErr() error {
+	return nil
+}
+
+func (s *InvalidParameterException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InvalidParameterException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InvalidParameterException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// A PaginationToken is valid for a maximum of 15 minutes. Your request was
+// denied because the specified PaginationToken has expired.
+type PaginationTokenExpiredException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"Message" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s PaginationTokenExpiredException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s PaginationTokenExpiredException) GoString() string {
+	return s.String()
+}
+
+func newErrorPaginationTokenExpiredException(v protocol.ResponseMetadata) error {
+	return &PaginationTokenExpiredException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *PaginationTokenExpiredException) Code() string {
+	return "PaginationTokenExpiredException"
+}
+
+// Message returns the exception's message.
+func (s *PaginationTokenExpiredException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *PaginationTokenExpiredException) OrigErr() error {
+	return nil
+}
+
+func (s *PaginationTokenExpiredException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *PaginationTokenExpiredException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *PaginationTokenExpiredException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
 // A list of resource ARNs and the tags (keys and values) that are associated
 // with each.
 type ResourceTagMapping struct {
 	_ struct{} `type:"structure"`
 
+	// Information that shows whether a resource is compliant with the effective
+	// tag policy, including details on any noncompliant tag keys.
+	ComplianceDetails *ComplianceDetails `type:"structure"`
+
 	// The ARN of the resource.
 	ResourceARN *string `min:"1" type:"string"`
 
-	// The tags that have been applied to one or more AWS resources.
+	// The tags that have been applied to one or more Amazon Web Services resources.
 	Tags []*Tag `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ResourceTagMapping) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ResourceTagMapping) GoString() string {
 	return s.String()
+}
+
+// SetComplianceDetails sets the ComplianceDetails field's value.
+func (s *ResourceTagMapping) SetComplianceDetails(v *ComplianceDetails) *ResourceTagMapping {
+	s.ComplianceDetails = v
+	return s
 }
 
 // SetResourceARN sets the ResourceARN field's value.
@@ -1066,32 +2437,196 @@ func (s *ResourceTagMapping) SetTags(v []*Tag) *ResourceTagMapping {
 	return s
 }
 
-// The metadata that you apply to AWS resources to help you categorize and organize
-// them. Each tag consists of a key and an optional value, both of which you
-// define. For more information, see Tag Basics (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-basics)
-// in the Amazon EC2 User Guide for Linux Instances.
+type StartReportCreationInput struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the Amazon S3 bucket where the report will be stored; for example:
+	//
+	// awsexamplebucket
+	//
+	// For more information on S3 bucket requirements, including an example bucket
+	// policy, see the example S3 bucket policy on this page.
+	//
+	// S3Bucket is a required field
+	S3Bucket *string `min:"3" type:"string" required:"true"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StartReportCreationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StartReportCreationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *StartReportCreationInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "StartReportCreationInput"}
+	if s.S3Bucket == nil {
+		invalidParams.Add(request.NewErrParamRequired("S3Bucket"))
+	}
+	if s.S3Bucket != nil && len(*s.S3Bucket) < 3 {
+		invalidParams.Add(request.NewErrParamMinLen("S3Bucket", 3))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetS3Bucket sets the S3Bucket field's value.
+func (s *StartReportCreationInput) SetS3Bucket(v string) *StartReportCreationInput {
+	s.S3Bucket = &v
+	return s
+}
+
+type StartReportCreationOutput struct {
+	_ struct{} `type:"structure"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StartReportCreationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StartReportCreationOutput) GoString() string {
+	return s.String()
+}
+
+// A count of noncompliant resources.
+type Summary struct {
+	_ struct{} `type:"structure"`
+
+	// The timestamp that shows when this summary was generated in this Region.
+	LastUpdated *string `type:"string"`
+
+	// The count of noncompliant resources.
+	NonCompliantResources *int64 `type:"long"`
+
+	// The Amazon Web Services Region that the summary applies to.
+	Region *string `min:"1" type:"string"`
+
+	// The Amazon Web Services resource type.
+	ResourceType *string `type:"string"`
+
+	// The account identifier or the root identifier of the organization. If you
+	// don't know the root ID, you can call the Organizations ListRoots (https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListRoots.html)
+	// API.
+	TargetId *string `min:"6" type:"string"`
+
+	// Whether the target is an account, an OU, or the organization root.
+	TargetIdType *string `type:"string" enum:"TargetIdType"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s Summary) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s Summary) GoString() string {
+	return s.String()
+}
+
+// SetLastUpdated sets the LastUpdated field's value.
+func (s *Summary) SetLastUpdated(v string) *Summary {
+	s.LastUpdated = &v
+	return s
+}
+
+// SetNonCompliantResources sets the NonCompliantResources field's value.
+func (s *Summary) SetNonCompliantResources(v int64) *Summary {
+	s.NonCompliantResources = &v
+	return s
+}
+
+// SetRegion sets the Region field's value.
+func (s *Summary) SetRegion(v string) *Summary {
+	s.Region = &v
+	return s
+}
+
+// SetResourceType sets the ResourceType field's value.
+func (s *Summary) SetResourceType(v string) *Summary {
+	s.ResourceType = &v
+	return s
+}
+
+// SetTargetId sets the TargetId field's value.
+func (s *Summary) SetTargetId(v string) *Summary {
+	s.TargetId = &v
+	return s
+}
+
+// SetTargetIdType sets the TargetIdType field's value.
+func (s *Summary) SetTargetIdType(v string) *Summary {
+	s.TargetIdType = &v
+	return s
+}
+
+// The metadata that you apply to Amazon Web Services resources to help you
+// categorize and organize them. Each tag consists of a key and a value, both
+// of which you define. For more information, see Tagging Amazon Web Services
+// Resources (https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html)
+// in the Amazon Web Services General Reference.
 type Tag struct {
 	_ struct{} `type:"structure"`
 
-	// One part of a key-value pair that make up a tag. A key is a general label
+	// One part of a key-value pair that makes up a tag. A key is a general label
 	// that acts like a category for more specific tag values.
 	//
 	// Key is a required field
 	Key *string `min:"1" type:"string" required:"true"`
 
-	// The optional part of a key-value pair that make up a tag. A value acts as
-	// a descriptor within a tag category (key).
+	// One part of a key-value pair that make up a tag. A value acts as a descriptor
+	// within a tag category (key). The value can be empty or null.
 	//
 	// Value is a required field
 	Value *string `type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s Tag) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s Tag) GoString() string {
 	return s.String()
 }
@@ -1113,21 +2648,29 @@ func (s *Tag) SetValue(v string) *Tag {
 type TagFilter struct {
 	_ struct{} `type:"structure"`
 
-	// One part of a key-value pair that make up a tag. A key is a general label
+	// One part of a key-value pair that makes up a tag. A key is a general label
 	// that acts like a category for more specific tag values.
 	Key *string `min:"1" type:"string"`
 
-	// The optional part of a key-value pair that make up a tag. A value acts as
-	// a descriptor within a tag category (key).
+	// One part of a key-value pair that make up a tag. A value acts as a descriptor
+	// within a tag category (key). The value can be empty or null.
 	Values []*string `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagFilter) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagFilter) GoString() string {
 	return s.String()
 }
@@ -1160,28 +2703,37 @@ func (s *TagFilter) SetValues(v []*string) *TagFilter {
 type TagResourcesInput struct {
 	_ struct{} `type:"structure"`
 
-	// A list of ARNs. An ARN (Amazon Resource Name) uniquely identifies a resource.
-	// You can specify a minimum of 1 and a maximum of 20 ARNs (resources) to tag.
-	// An ARN can be set to a maximum of 1600 characters. For more information,
-	// see Amazon Resource Names (ARNs) and AWS Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
-	// in the AWS General Reference.
+	// Specifies the list of ARNs of the resources that you want to apply tags to.
+	//
+	// An ARN (Amazon Resource Name) uniquely identifies a resource. For more information,
+	// see Amazon Resource Names (ARNs) and Amazon Web Services Service Namespaces
+	// (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	// in the Amazon Web Services General Reference.
 	//
 	// ResourceARNList is a required field
 	ResourceARNList []*string `min:"1" type:"list" required:"true"`
 
-	// The tags that you want to add to the specified resources. A tag consists
-	// of a key and a value that you define.
+	// Specifies a list of tags that you want to add to the specified resources.
+	// A tag consists of a key and a value that you define.
 	//
 	// Tags is a required field
 	Tags map[string]*string `min:"1" type:"map" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourcesInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourcesInput) GoString() string {
 	return s.String()
 }
@@ -1223,17 +2775,27 @@ func (s *TagResourcesInput) SetTags(v map[string]*string) *TagResourcesInput {
 type TagResourcesOutput struct {
 	_ struct{} `type:"structure"`
 
-	// Details of resources that could not be tagged. An error code, status code,
-	// and error message are returned for each failed item.
+	// A map containing a key-value pair for each failed item that couldn't be tagged.
+	// The key is the ARN of the failed resource. The value is a FailureInfo object
+	// that contains an error code, a status code, and an error message. If there
+	// are no errors, the FailedResourcesMap is empty.
 	FailedResourcesMap map[string]*FailureInfo `type:"map"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourcesOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourcesOutput) GoString() string {
 	return s.String()
 }
@@ -1244,30 +2806,103 @@ func (s *TagResourcesOutput) SetFailedResourcesMap(v map[string]*FailureInfo) *T
 	return s
 }
 
+// The request was denied to limit the frequency of submitted requests.
+type ThrottledException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"Message" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ThrottledException) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ThrottledException) GoString() string {
+	return s.String()
+}
+
+func newErrorThrottledException(v protocol.ResponseMetadata) error {
+	return &ThrottledException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *ThrottledException) Code() string {
+	return "ThrottledException"
+}
+
+// Message returns the exception's message.
+func (s *ThrottledException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *ThrottledException) OrigErr() error {
+	return nil
+}
+
+func (s *ThrottledException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *ThrottledException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *ThrottledException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
 type UntagResourcesInput struct {
 	_ struct{} `type:"structure"`
 
-	// A list of ARNs. An ARN (Amazon Resource Name) uniquely identifies a resource.
-	// You can specify a minimum of 1 and a maximum of 20 ARNs (resources) to untag.
-	// An ARN can be set to a maximum of 1600 characters. For more information,
-	// see Amazon Resource Names (ARNs) and AWS Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
-	// in the AWS General Reference.
+	// Specifies a list of ARNs of the resources that you want to remove tags from.
+	//
+	// An ARN (Amazon Resource Name) uniquely identifies a resource. For more information,
+	// see Amazon Resource Names (ARNs) and Amazon Web Services Service Namespaces
+	// (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	// in the Amazon Web Services General Reference.
 	//
 	// ResourceARNList is a required field
 	ResourceARNList []*string `min:"1" type:"list" required:"true"`
 
-	// A list of the tag keys that you want to remove from the specified resources.
+	// Specifies a list of tag keys that you want to remove from the specified resources.
 	//
 	// TagKeys is a required field
 	TagKeys []*string `min:"1" type:"list" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourcesInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourcesInput) GoString() string {
 	return s.String()
 }
@@ -1309,17 +2944,27 @@ func (s *UntagResourcesInput) SetTagKeys(v []*string) *UntagResourcesInput {
 type UntagResourcesOutput struct {
 	_ struct{} `type:"structure"`
 
-	// Details of resources that could not be untagged. An error code, status code,
-	// and error message are returned for each failed item.
+	// A map containing a key-value pair for each failed item that couldn't be untagged.
+	// The key is the ARN of the failed resource. The value is a FailureInfo object
+	// that contains an error code, a status code, and an error message. If there
+	// are no errors, the FailedResourcesMap is empty.
 	FailedResourcesMap map[string]*FailureInfo `type:"map"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourcesOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourcesOutput) GoString() string {
 	return s.String()
 }
@@ -1337,3 +2982,51 @@ const (
 	// ErrorCodeInvalidParameterException is a ErrorCode enum value
 	ErrorCodeInvalidParameterException = "InvalidParameterException"
 )
+
+// ErrorCode_Values returns all elements of the ErrorCode enum
+func ErrorCode_Values() []string {
+	return []string{
+		ErrorCodeInternalServiceException,
+		ErrorCodeInvalidParameterException,
+	}
+}
+
+const (
+	// GroupByAttributeTargetId is a GroupByAttribute enum value
+	GroupByAttributeTargetId = "TARGET_ID"
+
+	// GroupByAttributeRegion is a GroupByAttribute enum value
+	GroupByAttributeRegion = "REGION"
+
+	// GroupByAttributeResourceType is a GroupByAttribute enum value
+	GroupByAttributeResourceType = "RESOURCE_TYPE"
+)
+
+// GroupByAttribute_Values returns all elements of the GroupByAttribute enum
+func GroupByAttribute_Values() []string {
+	return []string{
+		GroupByAttributeTargetId,
+		GroupByAttributeRegion,
+		GroupByAttributeResourceType,
+	}
+}
+
+const (
+	// TargetIdTypeAccount is a TargetIdType enum value
+	TargetIdTypeAccount = "ACCOUNT"
+
+	// TargetIdTypeOu is a TargetIdType enum value
+	TargetIdTypeOu = "OU"
+
+	// TargetIdTypeRoot is a TargetIdType enum value
+	TargetIdTypeRoot = "ROOT"
+)
+
+// TargetIdType_Values returns all elements of the TargetIdType enum
+func TargetIdType_Values() []string {
+	return []string{
+		TargetIdTypeAccount,
+		TargetIdTypeOu,
+		TargetIdTypeRoot,
+	}
+}
