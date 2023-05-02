@@ -35,9 +35,9 @@ var (
 	maxDrainConcurrency        int64
 	drainTimeoutSeconds        int
 	drainTimeoutUnknownSeconds int
-	drainRetryAttempts         int
-	pollingIntervalSeconds     int
-	maxTimeToProcessSeconds    int64
+	//drainRetryAttempts         int
+	pollingIntervalSeconds  int
+	maxTimeToProcessSeconds int64
 
 	// DefaultRetryer is the default retry configuration for some AWS API calls
 	DefaultRetryer = client.DefaultRetryer{
@@ -80,9 +80,9 @@ var serveCmd = &cobra.Command{
 			DrainRetryIntervalSeconds:  int64(drainRetryIntervalSeconds),
 			MaxDrainConcurrency:        semaphore.NewWeighted(maxDrainConcurrency),
 			MaxTimeToProcessSeconds:    int64(maxTimeToProcessSeconds),
-			DrainRetryAttempts:         int64(drainRetryAttempts),
-			Region:                     region,
-			WithDeregister:             deregisterTargetGroups,
+			//DrainRetryAttempts:         int64(drainRetryAttempts),
+			Region:         region,
+			WithDeregister: deregisterTargetGroups,
 		}
 
 		s := service.New(auth, context)
@@ -102,7 +102,7 @@ func init() {
 	serveCmd.Flags().IntVar(&drainTimeoutSeconds, "drain-timeout", 300, "hard time limit for draining healthy nodes")
 	serveCmd.Flags().IntVar(&drainTimeoutUnknownSeconds, "drain-timeout-unknown", 30, "hard time limit for draining nodes that are in unknown state")
 	serveCmd.Flags().IntVar(&drainRetryIntervalSeconds, "drain-interval", 30, "interval in seconds for which to retry draining")
-	serveCmd.Flags().IntVar(&drainRetryAttempts, "drain-retries", 3, "number of times to retry the node drain operation")
+	//serveCmd.Flags().IntVar(&drainRetryAttempts, "drain-retries", 3, "number of times to retry the node drain operation")
 	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
 	serveCmd.Flags().BoolVar(&deregisterTargetGroups, "with-deregister", true, "try to deregister deleting instance from target groups")
 	serveCmd.Flags().BoolVar(&refreshExpiredCredentials, "refresh-expired-credentials", false, "refreshes expired credentials (requires shared credentials file)")
