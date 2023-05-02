@@ -49,7 +49,7 @@ func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
 	return false
 }
 
-func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error {
+func drainNode(kubectlPath, nodeName string, timeout, retryInterval, retryAttempts int64) error {
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
 	drainCommand := kubectlPath
 
@@ -58,7 +58,7 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error
 		return nil
 	}
 
-	err := runCommandWithContext(drainCommand, drainArgs, timeout, retryInterval)
+	err := runCommandWithContext(drainCommand, drainArgs, timeout, retryInterval, retryAttempts)
 	if err != nil {
 		if err.Error() == "command execution timed out" {
 			log.Warnf("failed to drain node %v, drain command timed-out", nodeName)
@@ -70,33 +70,26 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64) error
 	return nil
 }
 
-func runCommandWithContext(call string, args []string, timeoutSeconds, retryInterval int64) error {
-	// Create a new context and add a timeout to it
-	timeoutErr := fmt.Errorf("command execution timed out")
+func runCommandWithContext(call string, args []string, timeoutSeconds, retryInterval, retryAttempts int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 	err := retry.Do(
 		func() error {
 			cmd := exec.CommandContext(ctx, call, args...)
-			out, err := cmd.CombinedOutput()
-			if ctx.Err() == context.DeadlineExceeded {
-				log.Error(timeoutErr)
-				return timeoutErr
-			}
+			_, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Errorf("call failed with output: %s,  error: %s", string(out), err)
 				return err
 			}
 			return nil
 		},
 		retry.RetryIf(func(err error) bool {
-			if err.Error() == timeoutErr.Error() {
-				return false
+			if err != nil {
+				log.Infoln("retrying drain")
+				return true
 			}
-			log.Infoln("retrying drain")
-			return true
+			return false
 		}),
-		retry.Attempts(3),
+		retry.Attempts(uint(retryAttempts)),
 		retry.Delay(time.Duration(retryInterval)*time.Second),
 	)
 	if err != nil {
