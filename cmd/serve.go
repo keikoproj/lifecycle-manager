@@ -80,7 +80,7 @@ var serveCmd = &cobra.Command{
 			DrainRetryIntervalSeconds:  int64(drainRetryIntervalSeconds),
 			MaxDrainConcurrency:        semaphore.NewWeighted(maxDrainConcurrency),
 			MaxTimeToProcessSeconds:    int64(maxTimeToProcessSeconds),
-			DrainRetryAttempts:         int64(drainRetryAttempts),
+			DrainRetryAttempts:         uint(drainRetryAttempts),
 			Region:                     region,
 			WithDeregister:             deregisterTargetGroups,
 		}

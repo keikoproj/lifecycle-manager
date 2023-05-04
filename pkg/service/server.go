@@ -234,16 +234,16 @@ func (mgr *Manager) newPoller() {
 
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
-		ctx           = &mgr.context
-		kubeClient    = mgr.authenticator.KubernetesClient
-		kubectlPath   = mgr.context.KubectlLocalPath
-		metrics       = mgr.metrics
-		drainTimeout  = ctx.DrainTimeoutSeconds
-		retryInterval = ctx.DrainRetryIntervalSeconds
-		// drainRetryAttempts = int64(3) //ctx.DrainRetryAttempts
-		successMsg = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
+		ctx                = &mgr.context
+		kubeClient         = mgr.authenticator.KubernetesClient
+		kubectlPath        = mgr.context.KubectlLocalPath
+		metrics            = mgr.metrics
+		drainTimeout       = ctx.DrainTimeoutSeconds
+		drainRetryAttempts = ctx.DrainRetryAttempts
+		retryInterval      = ctx.DrainRetryIntervalSeconds
+		successMsg         = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
 	)
-	drainRetryAttempts := ctx.DrainRetryAttempts
+
 	log.Debugf("%v> acquired drain semaphore", event.EC2InstanceID)
 	defer func() {
 		mgr.context.MaxDrainConcurrency.Release(1)

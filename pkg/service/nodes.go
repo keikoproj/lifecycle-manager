@@ -49,7 +49,7 @@ func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
 	return false
 }
 
-func drainNode(kubectlPath, nodeName string, timeout, retryInterval, retryAttempts int64) error {
+func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retryAttempts uint) error {
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
 	drainCommand := kubectlPath
 
@@ -70,7 +70,7 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval, retryAttemp
 	return nil
 }
 
-func runCommandWithContext(call string, args []string, timeoutSeconds, retryInterval, retryAttempts int64) error {
+func runCommandWithContext(call string, args []string, timeoutSeconds, retryInterval int64, retryAttempts uint) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 	err := retry.Do(
@@ -89,7 +89,7 @@ func runCommandWithContext(call string, args []string, timeoutSeconds, retryInte
 			}
 			return false
 		}),
-		retry.Attempts(uint(retryAttempts)),
+		retry.Attempts(retryAttempts),
 		retry.Delay(time.Duration(retryInterval)*time.Second),
 	)
 	if err != nil {
