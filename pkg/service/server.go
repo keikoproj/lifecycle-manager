@@ -71,6 +71,7 @@ func (mgr *Manager) Start() {
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
 	log.Infof("unknown node drain timeout seconds = %v", ctx.DrainTimeoutUnknownSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
+	log.Infof("node drain retry attempts = %v", ctx.DrainRetryAttempts)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
 
 	// start metrics server
@@ -239,10 +240,10 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 		metrics       = mgr.metrics
 		drainTimeout  = ctx.DrainTimeoutSeconds
 		retryInterval = ctx.DrainRetryIntervalSeconds
-		//drainRetryAttempts = ctx.DrainRetryAttempts
+		// drainRetryAttempts = int64(3) //ctx.DrainRetryAttempts
 		successMsg = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
 	)
-
+	drainRetryAttempts := ctx.DrainRetryAttempts
 	log.Debugf("%v> acquired drain semaphore", event.EC2InstanceID)
 	defer func() {
 		mgr.context.MaxDrainConcurrency.Release(1)
@@ -258,7 +259,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	}
 
 	log.Infof("%v> draining node/%v", event.EC2InstanceID, event.referencedNode.Name)
-	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval, 3)
+	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval, drainRetryAttempts)
 	if err != nil {
 		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
