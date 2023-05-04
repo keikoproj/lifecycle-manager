@@ -45,6 +45,7 @@ type ManagerContext struct {
 	DrainTimeoutUnknownSeconds int64
 	DrainTimeoutSeconds        int64
 	DrainRetryIntervalSeconds  int64
+	DrainRetryAttempts         uint
 	PollingIntervalSeconds     int64
 	WithDeregister             bool
 	MaxDrainConcurrency        *semaphore.Weighted

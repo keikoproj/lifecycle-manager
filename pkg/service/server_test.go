@@ -38,6 +38,7 @@ func _newBasicContext() ManagerContext {
 		QueueName:               "my-queue",
 		Region:                  "us-west-2",
 		DrainTimeoutSeconds:     1,
+		DrainRetryAttempts:      3,
 		PollingIntervalSeconds:  1,
 		MaxDrainConcurrency:     semaphore.NewWeighted(32),
 		MaxTimeToProcessSeconds: 3600,
