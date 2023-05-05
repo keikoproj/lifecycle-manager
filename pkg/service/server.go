@@ -71,6 +71,7 @@ func (mgr *Manager) Start() {
 	log.Infof("node drain timeout seconds = %v", ctx.DrainTimeoutSeconds)
 	log.Infof("unknown node drain timeout seconds = %v", ctx.DrainTimeoutUnknownSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
+	log.Infof("node drain retry attempts = %v", ctx.DrainRetryAttempts)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
 
 	// start metrics server
@@ -233,13 +234,14 @@ func (mgr *Manager) newPoller() {
 
 func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
-		ctx           = &mgr.context
-		kubeClient    = mgr.authenticator.KubernetesClient
-		kubectlPath   = mgr.context.KubectlLocalPath
-		metrics       = mgr.metrics
-		drainTimeout  = ctx.DrainTimeoutSeconds
-		retryInterval = ctx.DrainRetryIntervalSeconds
-		successMsg    = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
+		ctx                = &mgr.context
+		kubeClient         = mgr.authenticator.KubernetesClient
+		kubectlPath        = mgr.context.KubectlLocalPath
+		metrics            = mgr.metrics
+		drainTimeout       = ctx.DrainTimeoutSeconds
+		drainRetryAttempts = ctx.DrainRetryAttempts
+		retryInterval      = ctx.DrainRetryIntervalSeconds
+		successMsg         = fmt.Sprintf(EventMessageNodeDrainSucceeded, event.referencedNode.Name)
 	)
 
 	log.Debugf("%v> acquired drain semaphore", event.EC2InstanceID)
@@ -257,7 +259,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	}
 
 	log.Infof("%v> draining node/%v", event.EC2InstanceID, event.referencedNode.Name)
-	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval)
+	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval, drainRetryAttempts)
 	if err != nil {
 		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
