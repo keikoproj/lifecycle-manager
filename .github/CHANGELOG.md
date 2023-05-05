@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+
++ Bug fix: Allow drain retries even with timeout failures (#104)
++ Package version update: Update docker actions to v4 (#106)
++ Package version update: Build updates, dependabot + GH Actions (#103)
++ Deperecate: Cleanup vendors (#94)
++ Package version update: Bump docker/login-action from 1 to 2 (#97)
++ Package version update: Update builders (#96)
+
 ## 0.5.1
 
 + Support cross-compliation for arm (#76)
