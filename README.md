@@ -1,6 +1,6 @@
 # lifecycle-manager
 
-[![Build Status](https://travis-ci.org/keikoproj/lifecycle-manager.svg?branch=master)](https://travis-ci.org/keikoproj/lifecycle-manager)
+[![Build Status](https://github.com/keikoproj/lifecycle-manager/actions/workflows/unit-test.yaml/badge.svg)](https://github.com/keikoproj/lifecycle-manager/actions/workflows/unit-test.yaml)
 [![codecov](https://codecov.io/gh/keikoproj/lifecycle-manager/branch/master/graph/badge.svg)](https://codecov.io/gh/keikoproj/lifecycle-manager)
 [![Go Report Card](https://goreportcard.com/badge/github.com/keikoproj/lifecycle-manager)](https://goreportcard.com/report/github.com/keikoproj/lifecycle-manager)
 ![version](https://img.shields.io/badge/version-0.6.0-green.svg?cacheSeconds=2592000)
