@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.25.0
 	github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200124200058-ab3c8c94044a
 	github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.2.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
