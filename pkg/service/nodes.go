@@ -75,18 +75,23 @@ func runCommandWithContext(call string, args []string, timeoutSeconds, retryInte
 	defer cancel()
 	err := retry.Do(
 		func() error {
+			log.Info("[sbadiger] about to excute command: ", call, " args: ", args)
 			cmd := exec.CommandContext(ctx, call, args...)
 			_, err := cmd.CombinedOutput()
 			if err != nil {
+				log.Info("[sbadiger] command execution failed: ", call, " args: ", args, " error: ", err)
 				return err
 			}
+			log.Info("[sbadiger] command execution suceeded: ", call, " args: ", args)
 			return nil
 		},
 		retry.RetryIf(func(err error) bool {
 			if err != nil {
+				log.Info("[sbadiger] there was an error in command execution. RetryIf() will return TRUE")
 				log.Infoln("retrying drain")
 				return true
 			}
+			log.Info("[sbadiger] there was no error in command execution. RetryIf() will return FALSE")
 			return false
 		}),
 		retry.Attempts(retryAttempts),
