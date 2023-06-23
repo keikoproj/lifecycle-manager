@@ -50,7 +50,7 @@ func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
 }
 
 func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retryAttempts uint) error {
-	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1"}
+	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1", "--timeout="+strconv.Itoa(timeout)}
 	drainCommand := kubectlPath
 
 	if timeout == 0 {
