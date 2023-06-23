@@ -58,7 +58,7 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retry
 		return nil
 	}
 
-	err := runCommandWithContext(drainCommand, drainArgs, timeout*int64(retryAttempts), retryInterval, retryAttempts)
+	err := runCommandWithContext(drainCommand, drainArgs, timeout, retryInterval, retryAttempts)
 	if err != nil {
 		if err.Error() == "command execution timed out" {
 			log.Warnf("failed to drain node %v, drain command timed-out", nodeName)
@@ -71,7 +71,7 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retry
 }
 
 func runCommandWithContext(call string, args []string, timeoutSeconds, retryInterval int64, retryAttempts uint) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
+    //ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 	err := retry.Do(
 		func() error {
