@@ -3,22 +3,16 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/avast/retry-go"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	drain "k8s.io/kubectl/pkg/drain"
 )
 
 func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool) {
@@ -56,43 +50,6 @@ func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
 	return false
 }
 
-// DrainNode cordons and drains a node.
-func DrainNode(node *corev1.Node, DrainTimeout int, client kubernetes.Interface) error {
-	if client == nil {
-		return fmt.Errorf("K8sClient not set")
-	}
-
-	if node == nil {
-		return fmt.Errorf("node not set")
-	}
-
-	helper := &drain.Helper{
-		Client:              client,
-		Force:               true,
-		GracePeriodSeconds:  -1,
-		IgnoreAllDaemonSets: true,
-		Out:                 os.Stdout,
-		ErrOut:              os.Stdout,
-		DeleteEmptyDirData:  true,
-		Timeout:             time.Duration(DrainTimeout) * time.Second,
-	}
-
-	if err := drain.RunCordonOrUncordon(helper, node, true); err != nil {
-		if apierrors.IsNotFound(err) {
-			return err
-		}
-		return fmt.Errorf("error cordoning node: %v", err)
-	}
-
-	if err := drain.RunNodeDrain(helper, node.Name); err != nil {
-		if apierrors.IsNotFound(err) {
-			return err
-		}
-		return fmt.Errorf("error draining node: %v", err)
-	}
-	return nil
-}
-
 func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retryAttempts uint) error {
 	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1", "--timeout=" + strconv.Itoa(int(timeout)) + "s"}
 	drainCommand := kubectlPath
@@ -102,34 +59,15 @@ func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retry
 		return nil
 	}
 
-	// Bootstrap k8s configuration from local       Kubernetes config file
-	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	log.Println("Using kubeconfig file: ", kubeconfig)
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	err := runCommandWithContext(drainCommand, drainArgs, timeout*int64(retryAttempts), retryInterval, retryAttempts)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create an rest client not targeting specific API version
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := DrainNode(nodeName, timeout, clientset); err != nil {
-		log.Fatal("DrainNode failed: nodeName - %v, %v", nodeName, err.Error())
+		if err.Error() == "command execution timed out" {
+			log.Warnf("failed to drain node %v, drain command timed-out", nodeName)
+			return err
+		}
+		log.Warnf("failed to drain node: %v", err)
 		return err
 	}
-
-	// err := runCommandWithContext(drainCommand, drainArgs, timeout*int64(retryAttempts), retryInterval, retryAttempts)
-	// if err != nil {
-	// 	if err.Error() == "command execution timed out" {
-	// 		log.Warnf("failed to drain node %v, drain command timed-out", nodeName)
-	// 		return err
-	// 	}
-	// 	log.Warnf("failed to drain node: %v", err)
-	// 	return err
-	// }
 	return nil
 }
 
