@@ -3,15 +3,19 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	drain "k8s.io/kubectl/pkg/drain"
+
 	"github.com/avast/retry-go"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -50,22 +54,15 @@ func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
 	return false
 }
 
-func drainNode(kubectlPath, nodeName string, timeout, retryInterval int64, retryAttempts uint) error {
-	drainArgs := []string{"drain", nodeName, "--ignore-daemonsets=true", "--delete-local-data=true", "--force", "--grace-period=-1", "--timeout=" + strconv.Itoa(int(timeout)) + "s"}
-	drainCommand := kubectlPath
-
+func drainNode(kubeClient kubernetes.Interface, node *corev1.Node, timeout, retryInterval int64, retryAttempts uint) error {
 	if timeout == 0 {
 		log.Warn("skipping drain since timeout was set to 0")
 		return nil
 	}
 
-	err := runCommandWithContext(drainCommand, drainArgs, timeout*int64(retryAttempts), retryInterval, retryAttempts)
+	err := DrainNode(node, int(timeout), kubeClient)
 	if err != nil {
-		if err.Error() == "command execution timed out" {
-			log.Warnf("failed to drain node %v, drain command timed-out", nodeName)
-			return err
-		}
-		log.Warnf("failed to drain node: %v", err)
+		log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
 		return err
 	}
 	return nil
@@ -76,23 +73,18 @@ func runCommandWithContext(call string, args []string, timeoutSeconds, retryInte
 	defer cancel()
 	err := retry.Do(
 		func() error {
-			log.Info("[sbadiger] about to excute command: ", call, " args: ", args)
 			cmd := exec.CommandContext(ctx, call, args...)
 			_, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Info("[sbadiger] command execution failed: ", call, " args: ", args, " error: ", err)
 				return err
 			}
-			log.Info("[sbadiger] command execution suceeded: ", call, " args: ", args)
 			return nil
 		},
 		retry.RetryIf(func(err error) bool {
 			if err != nil {
-				log.Info("[sbadiger] there was an error in command execution. RetryIf() will return TRUE")
 				log.Infoln("retrying drain")
 				return true
 			}
-			log.Info("[sbadiger] there was no error in command execution. RetryIf() will return FALSE")
 			return false
 		}),
 		retry.Attempts(retryAttempts),
@@ -161,4 +153,41 @@ func getNodesByAnnotationKeys(kubeClient kubernetes.Interface, keys ...string) (
 		}
 	}
 	return results, nil
+}
+
+// DrainNode cordons and drains a node.
+func DrainNode(node *corev1.Node, DrainTimeout int, client kubernetes.Interface) error {
+	if client == nil {
+		return fmt.Errorf("K8sClient not set")
+	}
+
+	if node == nil {
+		return fmt.Errorf("node not set")
+	}
+
+	helper := &drain.Helper{
+		Client:              client,
+		Force:               true,
+		GracePeriodSeconds:  -1,
+		IgnoreAllDaemonSets: true,
+		Out:                 os.Stdout,
+		ErrOut:              os.Stdout,
+		DeleteEmptyDirData:  true,
+		Timeout:             time.Duration(DrainTimeout) * time.Second,
+	}
+
+	if err := drain.RunCordonOrUncordon(helper, node, true); err != nil {
+		if apierrors.IsNotFound(err) {
+			return err
+		}
+		return fmt.Errorf("error cordoning node: %v", err)
+	}
+
+	if err := drain.RunNodeDrain(helper, node.Name); err != nil {
+		if apierrors.IsNotFound(err) {
+			return err
+		}
+		return fmt.Errorf("error draining node: %v", err)
+	}
+	return nil
 }

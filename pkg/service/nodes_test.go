@@ -160,15 +160,39 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 
 func Test_DrainNodePositive(t *testing.T) {
 	t.Log("Test_DrainNodePositive: If drain process is successful, process should exit successfully")
-	err := drainNode(stubKubectlPathSuccess, "some-node", 10, 0, 3)
+	kubeClient := fake.NewSimpleClientset()
+	readyNode := &v1.Node{
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionTrue,
+				},
+			},
+		},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), readyNode, apimachinery_v1.CreateOptions{})
+	err := drainNode(kubeClient, readyNode, 10, 0, 3)
 	if err != nil {
 		t.Fatalf("drainNode: expected error not to have occured, %v", err)
 	}
 }
 
 func Test_DrainNodeNegative(t *testing.T) {
-	t.Log("Test_DrainNodeNegative: If drain process is unsuccessful, process should error")
-	err := drainNode(stubKubectlPathFail, "some-node", 10, 0, 3)
+	t.Log("Test_DrainNodeNegative: node is not part of cluster, drainNode should return error")
+	kubeClient := fake.NewSimpleClientset()
+	unjoinedNode := &v1.Node{
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionUnknown,
+				},
+			},
+		},
+	}
+
+	err := drainNode(kubeClient, unjoinedNode, 10, 0, 3)
 	if err == nil {
 		t.Fatalf("drainNode: expected error to have occured, %v", err)
 	}

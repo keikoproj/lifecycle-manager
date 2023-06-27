@@ -236,7 +236,6 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	var (
 		ctx                = &mgr.context
 		kubeClient         = mgr.authenticator.KubernetesClient
-		kubectlPath        = mgr.context.KubectlLocalPath
 		metrics            = mgr.metrics
 		drainTimeout       = ctx.DrainTimeoutSeconds
 		drainRetryAttempts = ctx.DrainRetryAttempts
@@ -259,7 +258,7 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	}
 
 	log.Infof("%v> draining node/%v", event.EC2InstanceID, event.referencedNode.Name)
-	err := drainNode(kubectlPath, event.referencedNode.Name, drainTimeout, retryInterval, drainRetryAttempts)
+	err := drainNode(kubeClient, &event.referencedNode, drainTimeout, retryInterval, drainRetryAttempts)
 	if err != nil {
 		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
