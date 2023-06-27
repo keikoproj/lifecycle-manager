@@ -17,7 +17,7 @@ import (
 
 func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool) {
 	var foundNode v1.Node
-	nodes, err := k.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := k.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.Errorf("failed to list nodes: %v", err)
 		return foundNode, false
@@ -143,7 +143,7 @@ func annotateNode(kubectlPath string, nodeName string, annotations map[string]st
 func getNodesByAnnotationKeys(kubeClient kubernetes.Interface, keys ...string) (map[string]map[string]string, error) {
 	results := make(map[string]map[string]string, 0)
 
-	nodes, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := kubeClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return results, err
 	}
