@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	drain "k8s.io/kubectl/pkg/drain"
 
-	"github.com/avast/retry-go"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"k8s.io/client-go/kubernetes"
 )
@@ -61,42 +60,13 @@ func drainNode(kubeClient kubernetes.Interface, node *corev1.Node, timeout, retr
 	}
 
 	for retryAttempts > 0 {
-		err := DrainNode(node, int(timeout), kubeClient)
+		err := drainNodeUtil(node, int(timeout), kubeClient)
 		if err != nil {
 			log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
 			return err
 		}
 		log.Info("retrying drain")
 		retryAttempts -= 1
-	}
-
-	return nil
-}
-
-func runCommandWithContext(call string, args []string, timeoutSeconds, retryInterval int64, retryAttempts uint) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
-	defer cancel()
-	err := retry.Do(
-		func() error {
-			cmd := exec.CommandContext(ctx, call, args...)
-			_, err := cmd.CombinedOutput()
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-		retry.RetryIf(func(err error) bool {
-			if err != nil {
-				log.Infoln("retrying drain")
-				return true
-			}
-			return false
-		}),
-		retry.Attempts(retryAttempts),
-		retry.Delay(time.Duration(retryInterval)*time.Second),
-	)
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -160,8 +130,8 @@ func getNodesByAnnotationKeys(kubeClient kubernetes.Interface, keys ...string) (
 	return results, nil
 }
 
-// DrainNode cordons and drains a node.
-func DrainNode(node *corev1.Node, DrainTimeout int, client kubernetes.Interface) error {
+// drainNodeUtil cordons and drains a node.
+func drainNodeUtil(node *corev1.Node, DrainTimeout int, client kubernetes.Interface) error {
 	if client == nil {
 		return fmt.Errorf("K8sClient not set")
 	}
