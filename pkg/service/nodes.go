@@ -60,11 +60,16 @@ func drainNode(kubeClient kubernetes.Interface, node *corev1.Node, timeout, retr
 		return nil
 	}
 
-	err := DrainNode(node, int(timeout), kubeClient)
-	if err != nil {
-		log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
-		return err
+	for retryAttempts > 0 {
+		err := DrainNode(node, int(timeout), kubeClient)
+		if err != nil {
+			log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
+			return err
+		}
+		log.Info("retrying drain")
+		retryAttempts -= 1
 	}
+
 	return nil
 }
 
