@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"golang.org/x/sync/semaphore"
+	v1 "k8s.io/api/core/v1"
+	apimachinery_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -13,8 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/pkg/errors"
-
-	v1 "k8s.io/api/core/v1"
+	"golang.org/x/sync/semaphore"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -160,7 +161,7 @@ func Test_Process(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+		auth.KubernetesClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	event := &LifecycleEvent{
@@ -216,7 +217,7 @@ func Test_HandleEvent(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+		auth.KubernetesClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	event := &LifecycleEvent{
@@ -311,7 +312,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+		auth.KubernetesClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	event := &LifecycleEvent{
@@ -412,7 +413,7 @@ func Test_HandleEventWithDeregisterError(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+		auth.KubernetesClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	event := &LifecycleEvent{
@@ -509,7 +510,7 @@ func Test_Worker(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		auth.KubernetesClient.CoreV1().Nodes().Create(&node)
+		auth.KubernetesClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	fakeMessage := &sqs.Message{
