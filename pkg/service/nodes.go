@@ -77,12 +77,12 @@ func drainNode(kubeClient kubernetes.Interface, node *v1.Node, timeout, retryInt
 	}
 
 	for retryAttempts > 0 {
-		log.Info("Retry ID: ", retryAttempts)
 		err = drainNodeUtil(node, int(timeout), kubeClient)
-		if err != nil {
-			log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
+		if err == nil {
+			log.Info("drain suceeded")
+			return nil
 		}
-		log.Info("error: ", err)
+		log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
 		log.Info("retrying drain")
 		retryAttempts -= 1
 	}
