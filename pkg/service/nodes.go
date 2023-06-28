@@ -83,8 +83,10 @@ func drainNode(kubeClient kubernetes.Interface, node *v1.Node, timeout, retryInt
 			return nil
 		}
 		log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
-		log.Info("retrying drain")
 		retryAttempts -= 1
+		if retryAttempts > 0 {
+			log.Info("retrying drain")
+		}
 	}
 
 	return err
