@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +69,7 @@ func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
 	return false
 }
 
-func drainNode(kubeClient kubernetes.Interface, node *corev1.Node, timeout, retryInterval int64, retryAttempts uint) error {
+func drainNode(kubeClient kubernetes.Interface, node *v1.Node, timeout, retryInterval int64, retryAttempts uint) error {
 	var err error = nil
 	if timeout == 0 {
 		log.Warn("skipping drain since timeout was set to 0")
@@ -150,7 +149,7 @@ func getNodesByAnnotationKeys(kubeClient kubernetes.Interface, keys ...string) (
 }
 
 // drainNodeUtil cordons and drains a node.
-func drainNodeUtil(node *corev1.Node, DrainTimeout int, client kubernetes.Interface) error {
+func drainNodeUtil(node *v1.Node, DrainTimeout int, client kubernetes.Interface) error {
 	var err error = nil
 	if client == nil {
 		return fmt.Errorf("K8sClient not set")
