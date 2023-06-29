@@ -1,10 +1,12 @@
 package service
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	apimachinery_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -66,7 +68,7 @@ func Test_GetNodeByInstancePositive(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(&node)
+		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	_, exists := getNodeByInstance(kubeClient, "i-11111111111111111")
@@ -94,7 +96,7 @@ func Test_GetNodeByInstanceNegative(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(&node)
+		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	_, exists := getNodeByInstance(kubeClient, "i-3333333333333333")
@@ -136,7 +138,7 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(&node)
+		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
 	}
 
 	result, err := getNodesByAnnotationKeys(kubeClient, "some-key", "another-key")
@@ -158,31 +160,39 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 
 func Test_DrainNodePositive(t *testing.T) {
 	t.Log("Test_DrainNodePositive: If drain process is successful, process should exit successfully")
-	err := drainNode(stubKubectlPathSuccess, "some-node", 10, 0, 3)
+	kubeClient := fake.NewSimpleClientset()
+	readyNode := &v1.Node{
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionTrue,
+				},
+			},
+		},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), readyNode, apimachinery_v1.CreateOptions{})
+	err := drainNode(kubeClient, readyNode, 10, 0, 3)
 	if err != nil {
 		t.Fatalf("drainNode: expected error not to have occured, %v", err)
 	}
 }
 
 func Test_DrainNodeNegative(t *testing.T) {
-	t.Log("Test_DrainNodeNegative: If drain process is unsuccessful, process should error")
-	err := drainNode(stubKubectlPathFail, "some-node", 10, 0, 3)
-	if err == nil {
-		t.Fatalf("drainNode: expected error to have occured, %v", err)
+	t.Log("Test_DrainNodeNegative: node is not part of cluster, drainNode should return error")
+	kubeClient := fake.NewSimpleClientset()
+	unjoinedNode := &v1.Node{
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionUnknown,
+				},
+			},
+		},
 	}
-}
 
-func Test_RunCommandWithContextWithoutTimeout(t *testing.T) {
-	t.Log("Test_RunCommandWithContextTimeout: should run a command with context successfully (without timeout)")
-	err := runCommandWithContext("/bin/sleep", []string{"5"}, 10, 0, 3)
-	if err != nil {
-		t.Fatalf("drainNode: expected error to not have occured, %v", err)
-	}
-}
-
-func Test_RunCommandWithContextWithTimeout(t *testing.T) {
-	t.Log("Test_RunCommandWithContextTimeout: should throw error (with timeout)")
-	err := runCommandWithContext("/bin/sleep", []string{"5"}, 1, 0, 3)
+	err := drainNode(kubeClient, unjoinedNode, 10, 30, 3)
 	if err == nil {
 		t.Fatalf("drainNode: expected error to have occured, %v", err)
 	}

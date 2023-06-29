@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -52,7 +53,7 @@ func Test_PublishEvent(t *testing.T) {
 	publishKubernetesEvent(kubeClient, event)
 	expectedEvents := 1
 
-	events, err := kubeClient.CoreV1().Events(EventNamespace).List(metav1.ListOptions{})
+	events, err := kubeClient.CoreV1().Events(EventNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("Test_PublishEvent: expected error not to have occured, %v", err)
 	}
