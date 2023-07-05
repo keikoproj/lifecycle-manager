@@ -20,6 +20,7 @@ type LifecycleEvent struct {
 	heartbeatInterval    int64
 	referencedNode       v1.Node
 	drainCompleted       bool
+	nodeDeleted          bool
 	deregisterCompleted  bool
 	eventCompleted       bool
 	startTime            time.Time
@@ -43,6 +44,9 @@ func (e *LifecycleEvent) SetReferencedNode(node v1.Node) { e.referencedNode = no
 
 // SetDrainCompleted is a setter method for status of the drain operation
 func (e *LifecycleEvent) SetDrainCompleted(val bool) { e.drainCompleted = val }
+
+// SetNodeDeleted is a setter method for status of the node deletion operation
+func (e *LifecycleEvent) SetNodeDeleted(val bool) { e.nodeDeleted = val }
 
 // SetDeregisterCompleted is a setter method for status of the drain operation
 func (e *LifecycleEvent) SetDeregisterCompleted(val bool) { e.deregisterCompleted = val }
