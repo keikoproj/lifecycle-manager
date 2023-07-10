@@ -3,15 +3,14 @@ module github.com/keikoproj/lifecycle-manager
 go 1.17
 
 require (
-	github.com/avast/retry-go v2.4.1+incompatible
-	github.com/aws/aws-sdk-go v1.25.0
+	github.com/aws/aws-sdk-go v1.44.298
 	github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200124200058-ab3c8c94044a
 	github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.1.1
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	k8s.io/api v0.20.4
 	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v0.20.4
@@ -45,7 +44,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
@@ -62,11 +61,12 @@ require (
 	github.com/prometheus/procfs v0.2.0 // indirect
 	github.com/russross/blackfriday v1.5.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0 // indirect
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
+	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/text v0.3.4 // indirect
+	golang.org/x/term v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
