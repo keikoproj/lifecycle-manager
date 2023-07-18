@@ -92,6 +92,17 @@ func drainNode(kubeClient kubernetes.Interface, node *v1.Node, timeout, retryInt
 	return err
 }
 
+func deleteNode(kubeClient kubernetes.Interface, node *v1.Node) error {
+	err := deleteNodeUtil(node, kubeClient)
+	if err != nil {
+		log.Errorf("failed to delete node %v  error: %v ", node.Name, err)
+		return err
+	}
+
+	log.Info("node successfully deleted")
+	return nil
+}
+
 func runCommand(call string, arg []string) (string, error) {
 	log.Debugf("invoking >> %s %s", call, arg)
 	out, err := exec.Command(call, arg...).CombinedOutput()
@@ -191,4 +202,20 @@ func drainNodeUtil(node *v1.Node, DrainTimeout int, client kubernetes.Interface)
 		return fmt.Errorf("error draining node: %v", err)
 	}
 	return err
+}
+
+func deleteNodeUtil(node *v1.Node, client kubernetes.Interface) error {
+
+	var err error = nil
+
+	if _, ok := getNodeByName(client, node.Name); !ok {
+		return fmt.Errorf("node not found")
+	}
+
+	err = client.CoreV1().Nodes().Delete(context.Background(), node.Name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete node %q: %v", node.Name, err)
+	}
+
+	return nil
 }

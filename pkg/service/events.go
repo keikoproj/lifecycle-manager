@@ -46,6 +46,14 @@ const (
 	EventReasonNodeDrainFailed EventReason = "NodeDrainFailed"
 	// EventMessageNodeDrainFailed is the message for a failed drain event
 	EventMessageNodeDrainFailed = "node %v draining has failed: %v"
+	// EventReasonNodeDeleteSucceeded is the reason for a successful node delete event
+	EventReasonNodeDeleteSucceeded EventReason = "NodeDeleteSucceeded"
+	// EventMessageNodeDeleteSucceeded is the message for a successful node delete event
+	EventMessageNodeDeleteSucceeded = "node %v has been deleted successfully as a response to a termination event"
+	// EventReasonNodeDeletenFailed is the reason for a failed node delete event
+	EventReasonNodeDeleteFailed EventReason = "NodeDeleteFailed"
+	// EventMessageNodeDeleteFailed is the message for a failed node delete event
+	EventMessageNodeDeleteFailed = "node %v deletion has failed: %v"
 	// EventReasonTargetDeregisterSucceeded is the reason for a successful target group deregister event
 	EventReasonTargetDeregisterSucceeded EventReason = "TargetDeregisterSucceeded"
 	// EventMessageTargetDeregisterSucceeded is the message for a successful target group deregister event

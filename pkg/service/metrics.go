@@ -26,9 +26,11 @@ const (
 	SuccessfulEventsTotalMetric       = "successful_events_total"
 	SuccessfulLBDeregisterTotalMetric = "successful_lb_deregister_total"
 	SuccessfulNodeDrainTotalMetric    = "successful_node_drain_total"
+	SuccessfulNodeDeleteTotalMetric   = "successful_node_delete_total"
 	FailedEventsTotalMetric           = "failed_events_total"
 	FailedLBDeregisterTotalMetric     = "failed_lb_deregister_total"
 	FailedNodeDrainTotalMetric        = "failed_node_drain_total"
+	FailedNodeDeleteTotalMetric       = "failed_node_delete_total"
 	RejectedEventsTotalMetric         = "rejected_events_total"
 )
 
@@ -53,9 +55,11 @@ func (m *MetricsServer) Start() {
 		SuccessfulEventsTotalMetric:       "indicates the sum of all successful events.",
 		SuccessfulLBDeregisterTotalMetric: "indicates the sum of all events that succeeded to deregister loadbalancer",
 		SuccessfulNodeDrainTotalMetric:    "indicates the sum of all events that succeeded to drain the node.",
+		SuccessfulNodeDeleteTotalMetric:   "indicates the sum of all events that succeeded to delete the node.",
 		FailedEventsTotalMetric:           "indicates the sum of all failed events.",
 		FailedLBDeregisterTotalMetric:     "indicates the sum of all events that failed to deregister loadbalancer.",
 		FailedNodeDrainTotalMetric:        "indicates the sum of all events that failed to drain the node.",
+		FailedNodeDeleteTotalMetric:       "indicates the sum of all events that failed to delete the node.",
 		RejectedEventsTotalMetric:         "indicates the sum of all rejected events.",
 	}
 

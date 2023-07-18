@@ -275,6 +275,34 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 	return nil
 }
 
+func (mgr *Manager) deleteNodeTarget(event *LifecycleEvent) error {
+
+	var (
+		kubeClient = mgr.authenticator.KubernetesClient
+		metrics    = mgr.metrics
+		successMsg = fmt.Sprintf(EventMessageNodeDeleteSucceeded, event.referencedNode.Name)
+	)
+
+	log.Infof("%v> deleting node/%v", event.EC2InstanceID, event.referencedNode.Name)
+	err := deleteNode(kubeClient, &event.referencedNode)
+	if err != nil {
+		metrics.AddCounter(FailedNodeDrainTotalMetric, 1)
+		failMsg := fmt.Sprintf(EventMessageNodeDeleteFailed, event.referencedNode.Name, err)
+		kEvent := newKubernetesEvent(EventMessageNodeDeleteFailed, getMessageFields(event, failMsg))
+		publishKubernetesEvent(kubeClient, kEvent)
+		return err
+	}
+
+	log.Infof("%v> completed node deletion/%v", event.EC2InstanceID, event.referencedNode.Name)
+	event.SetNodeDeleted(true)
+	metrics.AddCounter(SuccessfulNodeDeleteTotalMetric, 1)
+
+	kEvent := newKubernetesEvent(EventReasonNodeDrainSucceeded, getMessageFields(event, successMsg))
+	publishKubernetesEvent(kubeClient, kEvent)
+
+	return nil
+}
+
 func (mgr *Manager) scanMembership(event *LifecycleEvent) (*ScanResult, error) {
 	var (
 		elbv2Client         = mgr.authenticator.ELBv2Client
@@ -620,6 +648,11 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 
 	if errs != nil {
 		return errs
+	}
+
+	err = mgr.deleteNodeTarget(event)
+	if err != nil {
+		errs = errors.Wrap(err, "failed to delete the node")
 	}
 
 	return nil
