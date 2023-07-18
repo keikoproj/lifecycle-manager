@@ -205,5 +205,17 @@ func drainNodeUtil(node *v1.Node, DrainTimeout int, client kubernetes.Interface)
 }
 
 func deleteNodeUtil(node *v1.Node, client kubernetes.Interface) error {
+
+	var err error = nil
+
+	if _, ok := getNodeByName(client, node.Name); !ok {
+		return fmt.Errorf("node not found")
+	}
+
+	err = client.CoreV1().Nodes().Delete(context.Background(), node.Name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete node %q: %v", node.Name, err)
+	}
+
 	return nil
 }
