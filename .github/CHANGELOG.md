@@ -2,6 +2,7 @@
 
 ## 0.6.1
 + Fix broken build badge (#108)
++ Include draintimeout and change node drain method. (#121) 
 + Node deletion (#127)
 
 ## 0.6.0
