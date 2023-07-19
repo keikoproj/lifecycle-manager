@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
++ Fix broken build badge (#108)
++ Node deletion (#127)
+
 ## 0.6.0
 
 + Bug fix: Allow drain retries even with timeout failures (#104)
