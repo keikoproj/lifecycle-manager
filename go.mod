@@ -9,7 +9,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.7.0
 	golang.org/x/sync v0.3.0
 	k8s.io/api v0.20.4
 	k8s.io/apimachinery v0.20.4
@@ -43,7 +43,7 @@ require (
 	github.com/googleapis/gnostic v0.4.1 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
