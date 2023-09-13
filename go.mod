@@ -3,7 +3,6 @@ module github.com/keikoproj/lifecycle-manager
 go 1.17
 
 require (
-	github.com/avast/retry-go v2.4.1+incompatible
 	github.com/aws/aws-sdk-go v1.25.0
 	github.com/keikoproj/aws-sdk-go-cache v0.0.0-20200124200058-ab3c8c94044a
 	github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
