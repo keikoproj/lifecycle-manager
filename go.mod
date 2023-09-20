@@ -8,7 +8,7 @@ require (
 	github.com/keikoproj/inverse-exp-backoff v0.0.0-20191216014651-04523236b6ca
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
-	github.com/sirupsen/logrus v1.6.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/sync v0.3.0
 	k8s.io/api v0.20.4
@@ -47,7 +47,6 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
