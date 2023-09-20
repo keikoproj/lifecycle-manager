@@ -1,5 +1,5 @@
 # Build Stage
-FROM --platform=$BUILDPLATFORM golang:1.17-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.19-alpine as builder
 ARG TARGETOS TARGETARCH
 LABEL REPO="https://github.com/keikoproj/lifecycle-manager"
 
@@ -16,7 +16,7 @@ RUN addgroup -g 10001 -S lifecycle-manager && \
                 -G lifecycle-manager \
 		--uid 10001 \
 		lifecycle-manager
-ADD https://storage.googleapis.com/kubernetes-release/release/v1.18.14/bin/linux/amd64/kubectl /usr/local/bin/kubectl
+ADD https://storage.googleapis.com/kubernetes-release/release/v1.25.12/bin/linux/amd64/kubectl /usr/local/bin/kubectl
 RUN chmod 777 /usr/local/bin/kubectl
 RUN make build
 
