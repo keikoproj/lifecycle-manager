@@ -11,8 +11,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/sync v0.3.0
-	k8s.io/api v0.20.4
-	k8s.io/apimachinery v0.20.4
+	k8s.io/api v0.20.15
+	k8s.io/apimachinery v0.20.15
 	k8s.io/client-go v0.20.4
 	k8s.io/kubectl v0.20.4
 )
@@ -35,7 +35,7 @@ require (
 	github.com/go-openapi/jsonreference v0.19.3 // indirect
 	github.com/go-openapi/spec v0.19.3 // indirect
 	github.com/go-openapi/swag v0.19.5 // indirect
-	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/btree v1.0.0 // indirect
@@ -74,9 +74,9 @@ require (
 	k8s.io/cli-runtime v0.20.4 // indirect
 	k8s.io/component-base v0.20.4 // indirect
 	k8s.io/klog/v2 v2.4.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd // indirect
+	k8s.io/kube-openapi v0.0.0-20211110013926-83f114cd0513 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920 // indirect
 	sigs.k8s.io/kustomize v2.0.3+incompatible // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.0.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
