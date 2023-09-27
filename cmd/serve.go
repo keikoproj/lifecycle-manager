@@ -58,7 +58,7 @@ var serveCmd = &cobra.Command{
 		// argument validation
 		validateServe()
 		log.SetLevel(logLevel)
-		cacheCfg := cache.NewConfig(CacheDefaultTTL, CacheMaxItems, CacheItemsToPrune)
+		cacheCfg := cache.NewConfig(CacheDefaultTTL, 1*time.Hour, CacheMaxItems, CacheItemsToPrune)
 
 		// prepare auth clients
 		auth := service.Authenticator{
