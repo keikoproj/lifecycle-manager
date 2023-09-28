@@ -177,6 +177,7 @@ func drainNodeUtil(node *v1.Node, DrainTimeout int, client kubernetes.Interface)
 	}
 
 	helper := &drain.Helper{
+		Ctx:                 context.Background(),
 		Client:              client,
 		Force:               true,
 		GracePeriodSeconds:  -1,
