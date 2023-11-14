@@ -77,15 +77,17 @@ func drainNode(kubeClient kubernetes.Interface, node *v1.Node, timeout, retryInt
 	}
 
 	for retryAttempts > 0 {
-		err = drainNodeUtil(node, int(timeout), kubeClient)
+		// create a copy of the node obj, since RunCordonOrUncordon() modifies the node obj
+		nodeCopy := node.DeepCopy()
+		err = drainNodeUtil(nodeCopy, int(timeout), kubeClient)
 		if err == nil {
-			log.Info("drain suceeded")
+			log.Infof("drain succeeded, node %v", node.Name)
 			return nil
 		}
-		log.Errorf("failed to drain node %v  error: %v ", node.Name, err)
+		log.Errorf("failed to drain node %v, error: %v", node.Name, err)
 		retryAttempts -= 1
 		if retryAttempts > 0 {
-			log.Info("retrying drain")
+			log.Infof("retrying drain, node %v", node.Name)
 		}
 	}
 
