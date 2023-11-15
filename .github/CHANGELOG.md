@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.6.2
+
+**NOTE:** Beginning with this release, the docker image tag for `lifecycle-manager` will be prefixed with `v`. For example, `v0.6.2` instead of `0.6.2`. This is to align with the [Semantic Versioning](https://semver.org/) specification.
+
+### Fixed
+* Improve dependabot configuration by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/154
+* use the copied node obj to drain the node by @ZihanJiang96 in https://github.com/keikoproj/lifecycle-manager/pull/165
+
+### What's Changed
+* Bump github.com/avast/retry-go from 2.4.1+incompatible to 2.7.0+incompatible by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/110
+* Bump golang.org/x/sync from 0.0.0-20190911185100-cd5d95a43a6e to 0.3.0 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/120
+* Bump github.com/emicklei/go-restful from 2.9.5+incompatible to 2.16.0+incompatible by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/123
+* Bump github.com/spf13/cobra from 1.1.1 to 1.7.0 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/125
+* Bump github.com/aws/aws-sdk-go from 1.25.0 to 1.45.9 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/134
+* Bump actions/checkout from 3 to 4 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/138
+* Bump codecov/codecov-action from 3 to 4 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/140
+* Update to codecov@v3 unit-test.yaml by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/142
+* Bump docker/login-action from 2 to 3 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/141
+* Bump docker/metadata-action from 4 to 5 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/137
+* Bump docker/build-push-action from 4 to 5 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/136
+* Update to Golang 1.19 by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/148
+* Bump github.com/sirupsen/logrus from 1.6.0 to 1.9.3 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/143
+* Bump k8s.io/kubectl from 0.20.4 to 0.20.15 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/146
+* Bump docker/setup-qemu-action from 2 to 3 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/135
+* Bump docker/setup-buildx-action from 2 to 3 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/139
+* Bump github.com/aws/aws-sdk-go from 1.45.9 to 1.45.16 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/152
+* Bump github.com/prometheus/client_golang from 1.7.1 to 1.16.0 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/145
+* Update aws-sdk-go-cache and inverse-exp-backoff by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/153
+* Update client-go and kubectl to v0.25.14 by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/157
+* Bump github.com/aws/aws-sdk-go from 1.45.16 to 1.45.18 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/156
+* Bump github.com/prometheus/client_golang from 1.16.0 to 1.17.0 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/155
+* Bump golang.org/x/net from 0.12.0 to 0.17.0 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/159
+* Bump k8s.io/client-go from 0.25.14 to 0.25.15 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/160
+* Bump golang.org/x/sync from 0.3.0 to 0.5.0 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/166
+* Bump github.com/aws/aws-sdk-go from 1.45.18 to 1.47.11 by @dependabot in https://github.com/keikoproj/lifecycle-manager/pull/167
+* Add keiko-admins and keiko-maintainers as codeowners by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/168
+* Update kubectl to v0.25.15 by @tekenstam in https://github.com/keikoproj/lifecycle-manager/pull/169
+
+### New Contributors
+* @tekenstam made their first contribution in https://github.com/keikoproj/lifecycle-manager/pull/142
+* @ZihanJiang96 made their first contribution in https://github.com/keikoproj/lifecycle-manager/pull/165
+
+**Full Changelog**: https://github.com/keikoproj/lifecycle-manager/compare/0.6.1...v0.6.2
+
+
 ## 0.6.1
 + Fix broken build badge (#108)
 + Include draintimeout and change node drain method. (#121) 
