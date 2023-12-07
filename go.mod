@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/aws/aws-sdk-go v1.48.11
 	github.com/keikoproj/aws-sdk-go-cache v0.0.2
-	github.com/keikoproj/inverse-exp-backoff v0.0.3
+	github.com/keikoproj/inverse-exp-backoff v0.0.4
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/sirupsen/logrus v1.9.3
