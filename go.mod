@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/sync v0.5.0
 	k8s.io/api v0.25.15
-	k8s.io/apimachinery v0.25.15
+	k8s.io/apimachinery v0.25.16
 	k8s.io/client-go v0.25.15
 	k8s.io/kubectl v0.25.15
 )
