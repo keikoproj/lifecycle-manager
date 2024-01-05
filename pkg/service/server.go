@@ -114,26 +114,32 @@ func (mgr *Manager) Start() {
 	// process events from stream
 	for message := range mgr.eventStream {
 
+		startTime := time.Now()
 		event, err := mgr.newEvent(message, queueURL)
+		log.Debugf("create and validate new event took %v\n", time.Since(startTime).Milliseconds())
 		if err != nil {
 			mgr.RejectEvent(err, event)
 			continue
 		}
 
 		go mgr.Process(event)
+
 	}
 }
 
 func (mgr *Manager) newEvent(message *sqs.Message, queueURL string) (*LifecycleEvent, error) {
+	t1 := time.Now()
 	event, err := readMessage(message, queueURL)
 	if err != nil {
 		return &LifecycleEvent{}, err
 	}
+	log.Debugf("read message took %v\n", time.Since(t1).Milliseconds())
 
+	t2 := time.Now()
 	if err = mgr.validateEvent(event); err != nil {
 		return event, err
 	}
-
+	log.Debugf("validate message took %v\n", time.Since(t2).Milliseconds())
 	return event, nil
 }
 
@@ -159,12 +165,18 @@ func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
 		return errors.New("event already exists in queue")
 	}
 
+	t1 := time.Now()
 	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
+	log.Debugf("get node by instance took %v\n", time.Since(t1).Milliseconds())
+
 	if !exists {
 		return errors.Errorf("instance %v is not seen in cluster nodes", e.EC2InstanceID)
 	}
 
+	t2 := time.Now()
 	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
+	log.Debugf("get hook heartbeat interval took %v\n", time.Since(t2).Milliseconds())
+
 	if err != nil {
 		return errors.Wrap(err, "failed to get hook heartbeat interval")
 	}
@@ -216,7 +228,8 @@ func (mgr *Manager) newPoller() {
 			AttributeNames: aws.StringSlice([]string{
 				"SenderId",
 			}),
-			MaxNumberOfMessages: aws.Int64(1),
+			MaxNumberOfMessages: aws.Int64(10),
+			VisibilityTimeout:   aws.Int64(120),
 			WaitTimeSeconds:     aws.Int64(interval),
 		})
 		if err != nil {
@@ -226,9 +239,12 @@ func (mgr *Manager) newPoller() {
 		if len(output.Messages) == 0 {
 			log.Debugln("no messages received in interval")
 		}
+		log.Debugf("received %d messages from queue %s\n", len(output.Messages), url)
+		startTime := time.Now()
 		for _, message := range output.Messages {
 			stream <- message
 		}
+		log.Debugf("all messages sent to stream, took %v, current stream length %v\n", time.Since(startTime).Milliseconds(), len(stream))
 	}
 }
 

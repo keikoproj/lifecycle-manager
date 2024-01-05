@@ -87,7 +87,7 @@ type WaiterError struct {
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
-		eventStream:   make(chan *sqs.Message, 0),
+		eventStream:   make(chan *sqs.Message, 1000),
 		workQueue:     make([]*LifecycleEvent, 0),
 		metrics:       &MetricsServer{},
 		targets:       &sync.Map{},
