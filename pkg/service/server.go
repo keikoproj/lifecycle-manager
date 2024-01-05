@@ -9,6 +9,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -133,7 +134,10 @@ func (mgr *Manager) newEvent(message *sqs.Message, queueURL string) (*LifecycleE
 	if err = mgr.validateEvent(event); err != nil {
 		return event, err
 	}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1abacb1 (add node metadata cache)
 	return event, nil
 }
 
@@ -159,18 +163,53 @@ func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
 		return errors.New("event already exists in queue")
 	}
 
+<<<<<<< HEAD
 	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
 	if !exists {
 		return errors.Errorf("instance %v is not seen in cluster nodes", e.EC2InstanceID)
 	}
 
 	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
+=======
+	var node *v1.Node
+	var err error
+	nodeName, ok := mgr.nodeMetadataMap[e.EC2InstanceID]
+	if ok {
+		// if node name is found in cache, use the k8s Get() method to get the node obj
+		node, err = kubeClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed to get node %v", e.EC2InstanceID)
+		}
+	} else {
+		// if node name is not found in cache, use the k8s List() method to get all nodes
+		nodes, err := kubeClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed to list nodes")
+		}
+		// update the cache, in the mean time, find the node obj we want
+		updatedNodeMetadataMap := make(map[string]string)
+		for _, item := range nodes.Items {
+			instanceID := getNodeInstanceID(item)
+			updatedNodeMetadataMap[instanceID] = item.Name
+			if instanceID == e.EC2InstanceID {
+				node = item.DeepCopy()
+			}
+		}
+		mgr.nodeMetadataMap = updatedNodeMetadataMap
+		if node == nil {
+			return errors.Errorf("node %v not found in the cluster", e.EC2InstanceID)
+		}
+	}
+
+	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
+
+>>>>>>> 1abacb1 (add node metadata cache)
 	if err != nil {
 		return errors.Wrap(err, "failed to get hook heartbeat interval")
 	}
 
 	e.SetHeartbeatInterval(heartbeatInterval)
-	e.SetReferencedNode(node)
+	e.SetReferencedNode(*node)
 
 	return nil
 }
