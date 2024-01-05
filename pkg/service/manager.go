@@ -27,8 +27,10 @@ type Manager struct {
 	context          ManagerContext
 	deregistrationMu sync.Mutex
 	sync.Mutex
-	workQueue       []*LifecycleEvent
-	targets         *sync.Map
+	workQueue []*LifecycleEvent
+	targets   *sync.Map
+	// nodeMetadataMap stores the node instanceID -> name mapping
+	nodeMetadataMap map[string]string
 	metrics         *MetricsServer
 	avarageLatency  float64
 	completedEvents int
@@ -87,12 +89,13 @@ type WaiterError struct {
 
 func New(auth Authenticator, ctx ManagerContext) *Manager {
 	return &Manager{
-		eventStream:   make(chan *sqs.Message, 1000),
-		workQueue:     make([]*LifecycleEvent, 0),
-		metrics:       &MetricsServer{},
-		targets:       &sync.Map{},
-		authenticator: auth,
-		context:       ctx,
+		eventStream:     make(chan *sqs.Message, 100),
+		workQueue:       make([]*LifecycleEvent, 0),
+		nodeMetadataMap: make(map[string]string),
+		metrics:         &MetricsServer{},
+		targets:         &sync.Map{},
+		authenticator:   auth,
+		context:         ctx,
 	}
 }
 

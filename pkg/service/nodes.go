@@ -17,25 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool) {
-	var foundNode v1.Node
-	nodes, err := k.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		log.Errorf("failed to list nodes: %v", err)
-		return foundNode, false
-	}
-
-	for _, node := range nodes.Items {
-		providerID := node.Spec.ProviderID
-		splitProviderID := strings.Split(providerID, "/")
-		foundID := splitProviderID[len(splitProviderID)-1]
-
-		if instanceID == foundID {
-			return node, true
-		}
-	}
-
-	return foundNode, false
+func getNodeInstanceID(node v1.Node) string {
+	providerID := node.Spec.ProviderID
+	splitProviderID := strings.Split(providerID, "/")
+	return splitProviderID[len(splitProviderID)-1]
 }
 
 func getNodeByName(k kubernetes.Interface, nodeName string) (*v1.Node, bool) {

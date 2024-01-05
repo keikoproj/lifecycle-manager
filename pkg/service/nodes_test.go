@@ -51,56 +51,16 @@ func Test_NodeStatusPredicate(t *testing.T) {
 
 }
 
-func Test_GetNodeByInstancePositive(t *testing.T) {
-	t.Log("Test_GetNodeByInstancePositive: If a node exists, should be able to get it's instance ID")
-	kubeClient := fake.NewSimpleClientset()
-	fakeNodes := []v1.Node{
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: "aws:///us-west-2a/i-11111111111111111",
-			},
-		},
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: "aws:///us-west-2c/i-22222222222222222",
-			},
+func Test_GetNodeInstanceID(t *testing.T) {
+	t.Log("Test_GetNodeInstanceID: If a node exists, should be able to get it's instance ID")
+	fakeNode := v1.Node{
+		Spec: v1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-11111111111111111",
 		},
 	}
+	expected := "i-11111111111111111"
 
-	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
-	}
-
-	_, exists := getNodeByInstance(kubeClient, "i-11111111111111111")
-	expected := true
-
-	if exists != expected {
-		t.Fatalf("expected getNodeByInstance exists to be: %v, got: %v", expected, exists)
-	}
-}
-
-func Test_GetNodeByInstanceNegative(t *testing.T) {
-	t.Log("Test_GetNodeByInstanceNegative: If a node exists, should be able to get it's instance ID")
-	kubeClient := fake.NewSimpleClientset()
-	fakeNodes := []v1.Node{
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: "aws:///us-west-2a/i-11111111111111111",
-			},
-		},
-		{
-			Spec: v1.NodeSpec{
-				ProviderID: "aws:///us-west-2c/i-22222222222222222",
-			},
-		},
-	}
-
-	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
-	}
-
-	_, exists := getNodeByInstance(kubeClient, "i-3333333333333333")
-	expected := false
+	exists := getNodeInstanceID(fakeNode)
 
 	if exists != expected {
 		t.Fatalf("expected getNodeByInstance exists to be: %v, got: %v", expected, exists)

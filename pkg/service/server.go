@@ -9,6 +9,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -116,7 +117,7 @@ func (mgr *Manager) Start() {
 
 		startTime := time.Now()
 		event, err := mgr.newEvent(message, queueURL)
-		log.Debugf("create and validate new event took %v\n", time.Since(startTime).Milliseconds())
+		log.Debugf("create and validate new event took %v ms", time.Since(startTime).Milliseconds())
 		if err != nil {
 			mgr.RejectEvent(err, event)
 			continue
@@ -128,18 +129,14 @@ func (mgr *Manager) Start() {
 }
 
 func (mgr *Manager) newEvent(message *sqs.Message, queueURL string) (*LifecycleEvent, error) {
-	t1 := time.Now()
 	event, err := readMessage(message, queueURL)
 	if err != nil {
 		return &LifecycleEvent{}, err
 	}
-	log.Debugf("read message took %v\n", time.Since(t1).Milliseconds())
 
-	t2 := time.Now()
 	if err = mgr.validateEvent(event); err != nil {
 		return event, err
 	}
-	log.Debugf("validate message took %v\n", time.Since(t2).Milliseconds())
 	return event, nil
 }
 
@@ -165,24 +162,44 @@ func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
 		return errors.New("event already exists in queue")
 	}
 
-	t1 := time.Now()
-	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
-	log.Debugf("get node by instance took %v\n", time.Since(t1).Milliseconds())
-
-	if !exists {
-		return errors.Errorf("instance %v is not seen in cluster nodes", e.EC2InstanceID)
+	var node *v1.Node
+	var err error
+	nodeName, ok := mgr.nodeMetadataMap[e.EC2InstanceID]
+	if ok {
+		// if node name is found in cache, use the k8s Get() method to get the node obj
+		node, err = kubeClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed to get node %v", e.EC2InstanceID)
+		}
+	} else {
+		// if node name is not found in cache, use the k8s List() method to get all nodes
+		nodes, err := kubeClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "failed to list nodes")
+		}
+		// update the cache, in the mean time, find the node obj we want
+		updatedNodeMetadataMap := make(map[string]string)
+		for _, item := range nodes.Items {
+			instanceID := getNodeInstanceID(item)
+			updatedNodeMetadataMap[instanceID] = item.Name
+			if instanceID == e.EC2InstanceID {
+				node = item.DeepCopy()
+			}
+		}
+		mgr.nodeMetadataMap = updatedNodeMetadataMap
+		if node == nil {
+			return errors.Errorf("node %v not found in the cluster", e.EC2InstanceID)
+		}
 	}
 
-	t2 := time.Now()
 	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
-	log.Debugf("get hook heartbeat interval took %v\n", time.Since(t2).Milliseconds())
 
 	if err != nil {
 		return errors.Wrap(err, "failed to get hook heartbeat interval")
 	}
 
 	e.SetHeartbeatInterval(heartbeatInterval)
-	e.SetReferencedNode(node)
+	e.SetReferencedNode(*node)
 
 	return nil
 }
@@ -239,12 +256,9 @@ func (mgr *Manager) newPoller() {
 		if len(output.Messages) == 0 {
 			log.Debugln("no messages received in interval")
 		}
-		log.Debugf("received %d messages from queue %s\n", len(output.Messages), url)
-		startTime := time.Now()
 		for _, message := range output.Messages {
 			stream <- message
 		}
-		log.Debugf("all messages sent to stream, took %v, current stream length %v\n", time.Since(startTime).Milliseconds(), len(stream))
 	}
 }
 
