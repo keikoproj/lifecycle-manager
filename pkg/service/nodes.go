@@ -38,21 +38,13 @@ func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool
 	return foundNode, false
 }
 
-func getNodeByName(k kubernetes.Interface, nodeName string) (v1.Node, bool) {
-	var foundNode v1.Node
-	nodes, err := k.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+func getNodeByName(k kubernetes.Interface, nodeName string) (*v1.Node, bool) {
+	foundNode, err := k.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to list nodes: %v", err)
+		log.Errorf("failed to get node %v: %v", nodeName, err)
 		return foundNode, false
 	}
-
-	for _, node := range nodes.Items {
-		if node.Name == nodeName {
-			return node, true
-		}
-	}
-
-	return foundNode, false
+	return foundNode, true
 }
 
 func isNodeStatusInCondition(node v1.Node, condition v1.ConditionStatus) bool {
