@@ -41,6 +41,8 @@ func newKubernetesClient(localMode string) *kubernetes.Clientset {
 		if err != nil {
 			log.Fatalln("cannot load kubernetes config from InCluster")
 		}
+		config.QPS = 600
+		config.Burst = 2000
 	}
 	return kubernetes.NewForConfigOrDie(config)
 }

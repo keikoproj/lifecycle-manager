@@ -115,9 +115,7 @@ func (mgr *Manager) Start() {
 	// process events from stream
 	for message := range mgr.eventStream {
 
-		startTime := time.Now()
 		event, err := mgr.newEvent(message, queueURL)
-		log.Debugf("create and validate new event took %v ms", time.Since(startTime).Milliseconds())
 		if err != nil {
 			mgr.RejectEvent(err, event)
 			continue
