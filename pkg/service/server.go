@@ -134,10 +134,6 @@ func (mgr *Manager) newEvent(message *sqs.Message, queueURL string) (*LifecycleE
 	if err = mgr.validateEvent(event); err != nil {
 		return event, err
 	}
-<<<<<<< HEAD
-
-=======
->>>>>>> 1abacb1 (add node metadata cache)
 	return event, nil
 }
 
@@ -163,14 +159,6 @@ func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
 		return errors.New("event already exists in queue")
 	}
 
-<<<<<<< HEAD
-	node, exists := getNodeByInstance(kubeClient, e.EC2InstanceID)
-	if !exists {
-		return errors.Errorf("instance %v is not seen in cluster nodes", e.EC2InstanceID)
-	}
-
-	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
-=======
 	var node *v1.Node
 	var err error
 	nodeName, ok := mgr.nodeMetadataMap[e.EC2InstanceID]
@@ -203,7 +191,6 @@ func (mgr *Manager) validateEvent(e *LifecycleEvent) error {
 
 	heartbeatInterval, err := getHookHeartbeatInterval(auth.ScalingGroupClient, e.LifecycleHookName, e.AutoScalingGroupName)
 
->>>>>>> 1abacb1 (add node metadata cache)
 	if err != nil {
 		return errors.Wrap(err, "failed to get hook heartbeat interval")
 	}
