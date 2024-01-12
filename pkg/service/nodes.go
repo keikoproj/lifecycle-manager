@@ -9,12 +9,13 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go"
-	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	drain "k8s.io/kubectl/pkg/drain"
+
+	"github.com/keikoproj/lifecycle-manager/pkg/log"
+	"k8s.io/client-go/kubernetes"
 )
 
 func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool) {
