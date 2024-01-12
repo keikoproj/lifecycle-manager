@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
+	retry "github.com/avast/retry-go"
+	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	drain "k8s.io/kubectl/pkg/drain"
-
-	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"k8s.io/client-go/kubernetes"
+	drain "k8s.io/kubectl/pkg/drain"
 )
 
 func getNodeByInstance(k kubernetes.Interface, instanceID string) (v1.Node, bool) {
@@ -76,20 +76,30 @@ func drainNode(kubeClient kubernetes.Interface, node *v1.Node, timeout, retryInt
 		return nil
 	}
 
-	for retryAttempts > 0 {
-		// create a copy of the node obj, since RunCordonOrUncordon() modifies the node obj
-		nodeCopy := node.DeepCopy()
-		err = drainNodeUtil(nodeCopy, int(timeout), kubeClient)
-		if err == nil {
-			log.Infof("drain succeeded, node %v", node.Name)
-			return nil
-		}
-		log.Errorf("failed to drain node %v, error: %v", node.Name, err)
-		retryAttempts -= 1
-		if retryAttempts > 0 {
-			log.Infof("retrying drain, node %v", node.Name)
-		}
-	}
+	err = retry.Do(
+		func() error {
+			// create a copy of the node obj, since RunCordonOrUncordon() modifies the node obj
+			nodeCopy := node.DeepCopy()
+			err = drainNodeUtil(nodeCopy, int(timeout), kubeClient)
+			if err != nil {
+				log.Errorf("failed to drain node %v, error: %v", node.Name, err)
+				return err
+			} else {
+				log.Infof("drain succeeded, node %v", node.Name)
+				return nil
+			}
+		},
+		retry.RetryIf(func(err error) bool {
+			if err != nil {
+				log.Infof("retrying drain, node %v", node.Name)
+				return true
+			}
+
+			return false
+		}),
+		retry.Attempts(retryAttempts),
+		retry.Delay(time.Duration(retryInterval)*time.Second),
+	)
 
 	return err
 }

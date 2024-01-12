@@ -192,7 +192,7 @@ func Test_DrainNodeNegative(t *testing.T) {
 		},
 	}
 
-	err := drainNode(kubeClient, unjoinedNode, 10, 30, 3)
+	err := drainNode(kubeClient, unjoinedNode, 10, 0, 3)
 	if err == nil {
 		t.Fatalf("drainNode: expected error to have occured, %v", err)
 	}
