@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.6.3
+
+* Bump github.com/spf13/cobra from 1.7.0 to 1.8.0 by @dependabot in #172
+* Bump github.com/aws/aws-sdk-go from 1.47.11 to 1.48.11 by @dependabot in #174
+* Bump github.com/keikoproj/inverse-exp-backoff from 0.0.3 to 0.0.4 by @dependabot in #175
+* Bump k8s.io/api from 0.25.15 to 0.25.16 by @dependabot in #173
+* Increase qps and burst to 100 by @ZihanJiang96 in #184
+
 ## v0.6.2
 
 **NOTE:** Beginning with this release, the docker image tag for `lifecycle-manager` will be prefixed with `v`. For example, `v0.6.2` instead of `0.6.2`. This is to align with the [Semantic Versioning](https://semver.org/) specification.
