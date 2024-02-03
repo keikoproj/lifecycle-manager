@@ -130,6 +130,7 @@ time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f7
 | drain-timeout | 300 | Int | hard time limit for draining healthy nodes |
 | drain-timeout-unknown | 30 | Int | hard time limit for draining nodes that are in unknown state |
 | drain-interval | 30 | Int | interval in seconds for which to retry draining |
+| drain-retries | 3 | Int | number of times to retry the node drain operation |
 | polling-interval | 10 | Int | interval in seconds for which to poll SQS |
 | with-deregister | true | Bool | try to deregister deleting instance from target groups |
 | refresh-expired-credentials | false | Bool | refreshes expired credentials (requires shared credentials file) |
