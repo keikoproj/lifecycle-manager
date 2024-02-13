@@ -3,6 +3,7 @@ module github.com/keikoproj/lifecycle-manager
 go 1.19
 
 require (
+	github.com/avast/retry-go/v4 v4.5.1
 	github.com/aws/aws-sdk-go v1.48.11
 	github.com/keikoproj/aws-sdk-go-cache v0.0.2
 	github.com/keikoproj/inverse-exp-backoff v0.0.4
@@ -22,6 +23,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
