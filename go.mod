@@ -3,7 +3,7 @@ module github.com/keikoproj/lifecycle-manager
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go v1.48.11
+	github.com/aws/aws-sdk-go v1.51.12
 	github.com/keikoproj/aws-sdk-go-cache v0.0.2
 	github.com/keikoproj/inverse-exp-backoff v0.0.4
 	github.com/pkg/errors v0.9.1
