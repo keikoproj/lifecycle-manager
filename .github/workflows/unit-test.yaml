@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go 1.x
       uses: actions/setup-go@v5
       with:
-        go-version: ^1.17
+        go-version: ^1.19
         cache: true
 
     - name: Check out code into the Go module directory
@@ -27,5 +27,7 @@ jobs:
 
     - name: Upload to Codecov
       uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:
         file: ./coverage.txt
