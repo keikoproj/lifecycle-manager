@@ -51,6 +51,8 @@ var (
 	WaiterMaxDelay time.Duration = 90 * time.Second
 	// WaiterMaxAttempts defines the maximum attempts of the IEB waiter
 	WaiterMaxAttempts uint32 = 120
+	// EnableALBDeregisterNodeLabelKey defines whether lifecycle manager need to deregister node from ALB
+	EnableALBDeregisterNodeLabelKey = "lifecycle-manager.keikoproj.io/enable-alb-deregister"
 )
 
 // Start starts the lifecycle-manager service
@@ -503,7 +505,9 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 		isFinished bool
 	)
 
-	if !ctx.WithDeregister {
+	log.Info("node", node)
+	if !ctx.WithDeregister || node.Labels[EnableALBDeregisterNodeLabelKey] != "true" {
+		log.Infof("%v> skipping load balancer deregistration", instanceID)
 		return nil
 	}
 	log.Infof("%v> starting load balancer drain worker", instanceID)
