@@ -74,6 +74,7 @@ func (mgr *Manager) Start() {
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 	log.Infof("node drain retry attempts = %v", ctx.DrainRetryAttempts)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
+	log.Infof("deregister target types = %v", ctx.DeregisterTargetTypes)
 
 	// start metrics server
 	log.Infof("starting metrics server on %v%v", MetricsEndpoint, MetricsPort)

@@ -109,7 +109,7 @@ func init() {
 	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
 	serveCmd.Flags().BoolVar(&deregisterTargetGroups, "with-deregister", true, "try to deregister deleting instance from target groups")
 	serveCmd.Flags().StringSliceVar(&deregisterTargetTypes, "deregister-target-types", []string{service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()},
-		fmt.Sprintf("list of target types to deregister from (%s, %s)", service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()))
+		fmt.Sprintf("comma separated list of target types to deregister instance from (%s, %s)", service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()))
 	serveCmd.Flags().BoolVar(&refreshExpiredCredentials, "refresh-expired-credentials", false, "refreshes expired credentials (requires shared credentials file)")
 }
 
