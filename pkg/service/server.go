@@ -341,7 +341,6 @@ func (mgr *Manager) scanMembership(event *LifecycleEvent) (*ScanResult, error) {
 	}
 
 	log.Infof("%v> checking targetgroup/elb membership", instanceID)
-	log.Debugf("len targetgroup: %v, len elb: %v", len(targetGroups), len(elbDescriptions))
 	// find instance in target groups
 	for i, tg := range targetGroups {
 		arn := aws.StringValue(tg.TargetGroupArn)
