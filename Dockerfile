@@ -1,5 +1,5 @@
 # Build Stage
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.19-alpine as builder
 ARG TARGETOS TARGETARCH
 LABEL REPO="https://github.com/keikoproj/lifecycle-manager"
 
