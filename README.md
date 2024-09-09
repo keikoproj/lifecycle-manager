@@ -134,6 +134,7 @@ time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f7
 | polling-interval | 10 | Int | interval in seconds for which to poll SQS |
 | with-deregister | true | Bool | try to deregister deleting instance from target groups |
 | refresh-expired-credentials | false | Bool | refreshes expired credentials (requires shared credentials file) |
+| deregister-target-types | "classic-elb,target-group" | String | comma separated list of target types to deregister instance from (classic-elb, target-group) |
 
 
 ## Release History

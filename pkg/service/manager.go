@@ -48,6 +48,7 @@ type ManagerContext struct {
 	DrainRetryAttempts         uint
 	PollingIntervalSeconds     int64
 	WithDeregister             bool
+	DeregisterTargetTypes      []string
 	MaxDrainConcurrency        *semaphore.Weighted
 	MaxTimeToProcessSeconds    int64
 }

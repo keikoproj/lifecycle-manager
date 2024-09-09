@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -73,6 +74,7 @@ func (mgr *Manager) Start() {
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 	log.Infof("node drain retry attempts = %v", ctx.DrainRetryAttempts)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
+	log.Infof("deregister target types = %v", ctx.DeregisterTargetTypes)
 
 	// start metrics server
 	log.Infof("starting metrics server on %v%v", MetricsEndpoint, MetricsPort)
@@ -305,6 +307,7 @@ func (mgr *Manager) deleteNodeTarget(event *LifecycleEvent) error {
 
 func (mgr *Manager) scanMembership(event *LifecycleEvent) (*ScanResult, error) {
 	var (
+		ctx                 = &mgr.context
 		elbv2Client         = mgr.authenticator.ELBv2Client
 		elbClient           = mgr.authenticator.ELBClient
 		instanceID          = event.EC2InstanceID
@@ -315,22 +318,26 @@ func (mgr *Manager) scanMembership(event *LifecycleEvent) (*ScanResult, error) {
 
 	// get all target groups
 	targetGroups := []*elbv2.TargetGroup{}
-	err := elbv2Client.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
-		targetGroups = append(targetGroups, page.TargetGroups...)
-		return page.NextMarker != nil
-	})
-	if err != nil {
-		return scanResult, err
+	if slices.Contains(ctx.DeregisterTargetTypes, TargetTypeTargetGroup.String()) {
+		err := elbv2Client.DescribeTargetGroupsPages(&elbv2.DescribeTargetGroupsInput{}, func(page *elbv2.DescribeTargetGroupsOutput, lastPage bool) bool {
+			targetGroups = append(targetGroups, page.TargetGroups...)
+			return page.NextMarker != nil
+		})
+		if err != nil {
+			return scanResult, err
+		}
 	}
 
 	// get all classic elbs
 	elbDescriptions := []*elb.LoadBalancerDescription{}
-	err = elbClient.DescribeLoadBalancersPages(&elb.DescribeLoadBalancersInput{}, func(page *elb.DescribeLoadBalancersOutput, lastPage bool) bool {
-		elbDescriptions = append(elbDescriptions, page.LoadBalancerDescriptions...)
-		return page.NextMarker != nil
-	})
-	if err != nil {
-		return scanResult, err
+	if slices.Contains(ctx.DeregisterTargetTypes, TargetTypeClassicELB.String()) {
+		err := elbClient.DescribeLoadBalancersPages(&elb.DescribeLoadBalancersInput{}, func(page *elb.DescribeLoadBalancersOutput, lastPage bool) bool {
+			elbDescriptions = append(elbDescriptions, page.LoadBalancerDescriptions...)
+			return page.NextMarker != nil
+		})
+		if err != nil {
+			return scanResult, err
+		}
 	}
 
 	log.Infof("%v> checking targetgroup/elb membership", instanceID)

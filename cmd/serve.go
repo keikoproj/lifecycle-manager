@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -30,6 +31,7 @@ var (
 	nodeName                   string
 	logLevel                   string
 	deregisterTargetGroups     bool
+	deregisterTargetTypes      []string
 	refreshExpiredCredentials  bool
 	drainRetryIntervalSeconds  int
 	maxDrainConcurrency        int64
@@ -83,6 +85,7 @@ var serveCmd = &cobra.Command{
 			DrainRetryAttempts:         uint(drainRetryAttempts),
 			Region:                     region,
 			WithDeregister:             deregisterTargetGroups,
+			DeregisterTargetTypes:      deregisterTargetTypes,
 		}
 
 		s := service.New(auth, context)
@@ -105,6 +108,8 @@ func init() {
 	serveCmd.Flags().IntVar(&drainRetryAttempts, "drain-retries", 3, "number of times to retry the node drain operation")
 	serveCmd.Flags().IntVar(&pollingIntervalSeconds, "polling-interval", 10, "interval in seconds for which to poll SQS")
 	serveCmd.Flags().BoolVar(&deregisterTargetGroups, "with-deregister", true, "try to deregister deleting instance from target groups")
+	serveCmd.Flags().StringSliceVar(&deregisterTargetTypes, "deregister-target-types", []string{service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()},
+		fmt.Sprintf("comma separated list of target types to deregister instance from (%s, %s)", service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()))
 	serveCmd.Flags().BoolVar(&refreshExpiredCredentials, "refresh-expired-credentials", false, "refreshes expired credentials (requires shared credentials file)")
 }
 

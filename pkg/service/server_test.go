@@ -297,6 +297,7 @@ func Test_HandleEventWithDeregister(t *testing.T) {
 
 	ctx := _newBasicContext()
 	ctx.WithDeregister = true
+	ctx.DeregisterTargetTypes = []string{TargetTypeClassicELB.String(), TargetTypeTargetGroup.String()}
 
 	fakeNodes := []v1.Node{
 		{
@@ -398,6 +399,7 @@ func Test_HandleEventWithDeregisterError(t *testing.T) {
 
 	ctx := _newBasicContext()
 	ctx.WithDeregister = true
+	ctx.DeregisterTargetTypes = []string{TargetTypeClassicELB.String(), TargetTypeTargetGroup.String()}
 
 	fakeNodes := []v1.Node{
 		{
