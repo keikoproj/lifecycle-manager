@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -37,10 +36,18 @@ func Test_Metrics(t *testing.T) {
 
 	mgr := New(auth, ctx)
 
-	go mgr.metrics.Start()
-	time.Sleep(2 * time.Second)
+	// Use port :0 so the OS assigns a free port, avoiding conflicts with other
+	// services or parallel test runs. Read the actual bound address via the
+	// Addr channel before making the HTTP request.
+	savedPort := MetricsPort
+	MetricsPort = ":0"
+	defer func() { MetricsPort = savedPort }()
 
-	endpoint := fmt.Sprintf("http://127.0.0.1%v%v", MetricsPort, MetricsEndpoint)
+	mgr.metrics.Addr = make(chan string, 1)
+	go mgr.metrics.Start()
+	addr := <-mgr.metrics.Addr
+
+	endpoint := fmt.Sprintf("http://%v%v", addr, MetricsEndpoint)
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		t.Fatalf("handleEvent: expected error not to have occured, %v", err)
