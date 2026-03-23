@@ -1,6 +1,7 @@
 package service
 
 import (
+	"net"
 	"net/http"
 
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
@@ -37,6 +38,7 @@ const (
 type MetricsServer struct {
 	Counters map[string]prometheus.Counter
 	Gauges   map[string]prometheus.Gauge
+	Addr     chan string
 }
 
 func (m *MetricsServer) Start() {
@@ -84,17 +86,27 @@ func (m *MetricsServer) Start() {
 		m.Counters[counterName] = counter
 	}
 
-	http.Handle(MetricsEndpoint, promhttp.Handler())
+	registry := prometheus.NewRegistry()
 
 	for _, gauge := range m.Gauges {
-		prometheus.MustRegister(gauge)
+		registry.MustRegister(gauge)
 	}
 
 	for _, counter := range m.Counters {
-		prometheus.MustRegister(counter)
+		registry.MustRegister(counter)
 	}
 
-	log.Fatal(http.ListenAndServe(MetricsPort, nil))
+	mux := http.NewServeMux()
+	mux.Handle(MetricsEndpoint, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+
+	ln, err := net.Listen("tcp", MetricsPort)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if m.Addr != nil {
+		m.Addr <- ln.Addr().String()
+	}
+	log.Fatal(http.Serve(ln, mux))
 }
 
 func (m *MetricsServer) AddCounter(idx string, value float64) {
