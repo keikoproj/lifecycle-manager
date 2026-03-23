@@ -10,7 +10,6 @@ import (
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
-	apimachinery_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -94,7 +93,7 @@ var (
 
 func publishKubernetesEvent(kubeClient kubernetes.Interface, event *v1.Event) {
 	log.Debugf("publishing event: %v", event.Reason)
-	_, err := kubeClient.CoreV1().Events(EventNamespace).Create(context.Background(), event, apimachinery_v1.CreateOptions{})
+	_, err := kubeClient.CoreV1().Events(EventNamespace).Create(context.Background(), event, metav1.CreateOptions{})
 	if err != nil {
 		log.Errorf("failed to publish event: %v", err)
 	}
