@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -35,12 +34,17 @@ func Test_Metrics(t *testing.T) {
 		PollingIntervalSeconds: 10,
 	}
 
+	originalPort := MetricsPort
+	MetricsPort = ":0"
+	defer func() { MetricsPort = originalPort }()
+
 	mgr := New(auth, ctx)
+	mgr.metrics.Addr = make(chan string, 1)
 
 	go mgr.metrics.Start()
-	time.Sleep(2 * time.Second)
+	addr := <-mgr.metrics.Addr
 
-	endpoint := fmt.Sprintf("http://127.0.0.1%v%v", MetricsPort, MetricsEndpoint)
+	endpoint := fmt.Sprintf("http://%v%v", addr, MetricsEndpoint)
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		t.Fatalf("handleEvent: expected error not to have occured, %v", err)
