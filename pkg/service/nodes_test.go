@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
-	apimachinery_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -68,7 +67,7 @@ func Test_GetNodeByInstancePositive(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
+		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, metav1.CreateOptions{})
 	}
 
 	_, exists := getNodeByInstance(kubeClient, "i-11111111111111111")
@@ -96,7 +95,7 @@ func Test_GetNodeByInstanceNegative(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
+		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, metav1.CreateOptions{})
 	}
 
 	_, exists := getNodeByInstance(kubeClient, "i-3333333333333333")
@@ -138,7 +137,7 @@ func Test_GetNodesByAnnotationKey(t *testing.T) {
 	}
 
 	for _, node := range fakeNodes {
-		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, apimachinery_v1.CreateOptions{})
+		kubeClient.CoreV1().Nodes().Create(context.Background(), &node, metav1.CreateOptions{})
 	}
 
 	result, err := getNodesByAnnotationKeys(kubeClient, "some-key", "another-key")
@@ -171,7 +170,7 @@ func Test_DrainNodePositive(t *testing.T) {
 			},
 		},
 	}
-	kubeClient.CoreV1().Nodes().Create(context.Background(), readyNode, apimachinery_v1.CreateOptions{})
+	kubeClient.CoreV1().Nodes().Create(context.Background(), readyNode, metav1.CreateOptions{})
 	err := drainNode(kubeClient, readyNode, 10, 0, 3)
 	if err != nil {
 		t.Fatalf("drainNode: expected error not to have occured, %v", err)
