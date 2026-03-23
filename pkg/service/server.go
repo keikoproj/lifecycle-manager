@@ -44,8 +44,6 @@ var (
 	ThreadJitterRangeSeconds = 30.0
 	// IterationJitterRangeSeconds configures the jitter range in seconds 0 to N per call iteration goroutine
 	IterationJitterRangeSeconds = 1.5
-	// NodeAgeCacheTTL defines a node age in minutes for which all caches are flushed
-	NodeAgeCacheTTL = 90
 	// WaiterMinDelay defines the minimum delay of the IEB waiter
 	WaiterMinDelay time.Duration = 10 * time.Second
 	// WaiterMaxDelay defines the maximum delay of the IEB waiter
@@ -527,15 +525,6 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 	err = labelNode(ctx.KubectlLocalPath, node.Name, AlphaExcludeLabelKey, AlphaExcludeLabelValue)
 	if err != nil {
 		return err
-	}
-
-	now := time.Now().UTC()
-	nodeCreationTime := node.CreationTimestamp.UTC()
-	nodeAge := int(now.Sub(nodeCreationTime).Minutes())
-	if nodeAge <= NodeAgeCacheTTL {
-		log.Warnf("%v> node younger than %vm was terminated, flushing caches", instanceID, NodeAgeCacheTTL)
-		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeTargetHealth")
-		mgr.context.CacheConfig.FlushCache("elasticloadbalancing.DescribeInstanceHealth")
 	}
 
 	// scan and update targets

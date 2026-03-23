@@ -6,22 +6,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/keikoproj/aws-sdk-go-cache/cache"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"github.com/keikoproj/lifecycle-manager/pkg/service"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/semaphore"
 )
 
-const (
-	CacheDefaultTTL           time.Duration = time.Second * 0
-	DescribeTargetHealthTTL   time.Duration = 120 * time.Second
-	DescribeInstanceHealthTTL time.Duration = 120 * time.Second
-	DescribeTargetGroupsTTL   time.Duration = 300 * time.Second
-	DescribeLoadBalancersTTL  time.Duration = 300 * time.Second
-	CacheMaxItems             int64         = 5000
-	CacheItemsToPrune         uint32        = 500
-)
 
 var (
 	localMode                  string
@@ -60,20 +50,18 @@ var serveCmd = &cobra.Command{
 		// argument validation
 		validateServe()
 		log.SetLevel(logLevel)
-		cacheCfg := cache.NewConfig(CacheDefaultTTL, 1*time.Hour, CacheMaxItems, CacheItemsToPrune)
 
 		// prepare auth clients
 		auth := service.Authenticator{
 			ScalingGroupClient: newASGClient(region),
 			SQSClient:          newSQSClient(region),
-			ELBv2Client:        newELBv2Client(region, cacheCfg),
-			ELBClient:          newELBClient(region, cacheCfg),
+			ELBv2Client:        newELBv2Client(region),
+			ELBClient:          newELBClient(region),
 			KubernetesClient:   newKubernetesClient(localMode),
 		}
 
 		// prepare runtime context
 		context := service.ManagerContext{
-			CacheConfig:                cacheCfg,
 			KubectlLocalPath:           kubectlLocalPath,
 			QueueName:                  queueName,
 			DrainTimeoutSeconds:        int64(drainTimeoutSeconds),
