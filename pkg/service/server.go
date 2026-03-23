@@ -628,7 +628,9 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 			InProgressAnnotationKey: string(storeMessage),
 			QueueNameAnnotationKey:  mgr.context.QueueName,
 		}
-		annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, annotations)
+		if err := annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, annotations); err != nil {
+			log.Errorf("%v> failed to annotate node: %v", event.EC2InstanceID, err)
+		}
 	}
 
 	// acquire a semaphore to drain the node, allow up to mgr.maxDrainConcurrency drains in parallel
@@ -651,7 +653,9 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 		InProgressAnnotationKey: "",
 		QueueNameAnnotationKey:  "",
 	}
-	annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, annotations)
+	if err := annotateNode(mgr.context.KubectlLocalPath, event.referencedNode.Name, annotations); err != nil {
+		log.Errorf("%v> failed to clear node annotations: %v", event.EC2InstanceID, err)
+	}
 
 	if errs != nil {
 		return errs
@@ -659,7 +663,7 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 
 	err = mgr.deleteNodeTarget(event)
 	if err != nil {
-		errs = errors.Wrap(err, "failed to delete the node")
+		return errors.Wrap(err, "failed to delete the node")
 	}
 
 	return nil
