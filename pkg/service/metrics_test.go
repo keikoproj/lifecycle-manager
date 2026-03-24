@@ -34,16 +34,13 @@ func Test_Metrics(t *testing.T) {
 		PollingIntervalSeconds: 10,
 	}
 
-	mgr := New(auth, ctx)
-
-	// Use port :0 so the OS assigns a free port, avoiding conflicts with other
-	// services or parallel test runs. Read the actual bound address via the
-	// Addr channel before making the HTTP request.
-	savedPort := MetricsPort
+	originalPort := MetricsPort
 	MetricsPort = ":0"
-	defer func() { MetricsPort = savedPort }()
+	defer func() { MetricsPort = originalPort }()
 
+	mgr := New(auth, ctx)
 	mgr.metrics.Addr = make(chan string, 1)
+
 	go mgr.metrics.Start()
 	addr := <-mgr.metrics.Addr
 

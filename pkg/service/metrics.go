@@ -38,9 +38,7 @@ const (
 type MetricsServer struct {
 	Counters map[string]prometheus.Counter
 	Gauges   map[string]prometheus.Gauge
-	// Addr is the actual address the server bound to, available after Start() begins serving.
-	// Populated via the ready channel; useful in tests when MetricsPort is ":0".
-	Addr chan string
+	Addr     chan string
 }
 
 func (m *MetricsServer) Start() {
@@ -67,10 +65,6 @@ func (m *MetricsServer) Start() {
 		RejectedEventsTotalMetric:         "indicates the sum of all rejected events.",
 	}
 
-	// Use a per-instance registry to avoid collisions with the global default registry
-	// when Start() is called multiple times (e.g. in tests or multiple instances).
-	registry := prometheus.NewRegistry()
-
 	for gaugeName, desc := range gaugeIndex {
 		gauge := prometheus.NewGauge(
 			prometheus.GaugeOpts{
@@ -79,7 +73,6 @@ func (m *MetricsServer) Start() {
 				Help:      desc,
 			})
 		m.Gauges[string(gaugeName)] = gauge
-		registry.MustRegister(gauge)
 	}
 
 	for counterName, desc := range counterIndex {
@@ -91,18 +84,24 @@ func (m *MetricsServer) Start() {
 			},
 		)
 		m.Counters[counterName] = counter
+	}
+
+	registry := prometheus.NewRegistry()
+
+	for _, gauge := range m.Gauges {
+		registry.MustRegister(gauge)
+	}
+
+	for _, counter := range m.Counters {
 		registry.MustRegister(counter)
 	}
 
-	// Use a per-instance ServeMux to avoid collisions with http.DefaultServeMux.
 	mux := http.NewServeMux()
 	mux.Handle(MetricsEndpoint, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 
-	// Bind first so we know the actual address (supports MetricsPort=":0" in tests).
 	ln, err := net.Listen("tcp", MetricsPort)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 	if m.Addr != nil {
 		m.Addr <- ln.Addr().String()
