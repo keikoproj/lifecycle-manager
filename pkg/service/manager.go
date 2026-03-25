@@ -15,8 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 
-	"github.com/keikoproj/aws-sdk-go-cache/cache"
-
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -38,7 +36,6 @@ type Manager struct {
 
 // ManagerContext contain the user input parameters on the current context
 type ManagerContext struct {
-	CacheConfig                *cache.Config
 	KubectlLocalPath           string
 	QueueName                  string
 	Region                     string

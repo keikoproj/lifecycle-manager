@@ -25,7 +25,6 @@ func init() {
 	WaiterMinDelay = 1 * time.Second
 	WaiterMaxDelay = 2 * time.Second
 	WaiterMaxAttempts = 3
-	NodeAgeCacheTTL = 100
 }
 
 func _completeEventAfter(event *LifecycleEvent, t time.Duration) {

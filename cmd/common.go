@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
-	"github.com/keikoproj/aws-sdk-go-cache/cache"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -90,46 +89,20 @@ func newAWSSession(region string) (*session.Session, error) {
 	return sess, nil
 }
 
-func newELBv2Client(region string, cacheCfg *cache.Config) elbv2iface.ELBV2API {
+func newELBv2Client(region string) elbv2iface.ELBV2API {
 	sess, err := newAWSSession(region)
 	if err != nil {
 		log.Fatalf("failed to create AWS session, %s", err)
 	}
-
-	cache.AddCaching(sess, cacheCfg)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetHealth", DescribeTargetHealthTTL)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeTargetGroups", DescribeTargetGroupsTTL)
-	cacheCfg.SetCacheMutating("elasticloadbalancing", "DeregisterTargets", false)
-	sess.Handlers.Complete.PushFront(func(r *request.Request) {
-		ctx := r.HTTPRequest.Context()
-		log.Debugf("cache hit => %v, service => %s.%s",
-			cache.IsCacheHit(ctx),
-			r.ClientInfo.ServiceName,
-			r.Operation.Name,
-		)
-	})
 
 	return elbv2.New(sess)
 }
 
-func newELBClient(region string, cacheCfg *cache.Config) elbiface.ELBAPI {
+func newELBClient(region string) elbiface.ELBAPI {
 	sess, err := newAWSSession(region)
 	if err != nil {
 		log.Fatalf("failed to create AWS session, %s", err)
 	}
-
-	cache.AddCaching(sess, cacheCfg)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeInstanceHealth", DescribeInstanceHealthTTL)
-	cacheCfg.SetCacheTTL("elasticloadbalancing", "DescribeLoadBalancers", DescribeLoadBalancersTTL)
-	cacheCfg.SetCacheMutating("elasticloadbalancing", "DeregisterInstancesFromLoadBalancer", false)
-	sess.Handlers.Complete.PushFront(func(r *request.Request) {
-		ctx := r.HTTPRequest.Context()
-		log.Debugf("cache hit => %v, service => %s.%s",
-			cache.IsCacheHit(ctx),
-			r.ClientInfo.ServiceName,
-			r.Operation.Name,
-		)
-	})
 
 	return elb.New(sess)
 }
