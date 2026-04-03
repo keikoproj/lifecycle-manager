@@ -8,7 +8,7 @@ require (
 	github.com/keikoproj/inverse-exp-backoff v0.1.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
-	github.com/sirupsen/logrus v1.9.3
+	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sync v0.20.0
 	k8s.io/api v0.32.13
