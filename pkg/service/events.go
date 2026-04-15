@@ -69,6 +69,10 @@ const (
 	EventReasonInstanceDeregisterFailed EventReason = "InstanceDeregisterFailed"
 	// EventMessageInstanceDeregisterFailed is the message for a successful classic elb deregister event
 	EventMessageInstanceDeregisterFailed = "instance %v has failed to deregister from classic-elb %v: %v"
+	// EventReasonHeartbeatTimeoutGracefulTermination is the reason for a heartbeat-timeout triggered pod cleanup
+	EventReasonHeartbeatTimeoutGracefulTermination EventReason = "HeartbeatTimeoutGracefulTermination"
+	// EventMessageHeartbeatTimeoutGracefulTermination is the message for a heartbeat-timeout triggered pod cleanup
+	EventMessageHeartbeatTimeoutGracefulTermination = "instance %v exceeded max-time-to-process, deleted %v pods for graceful termination on node %v"
 )
 
 var (
@@ -86,8 +90,9 @@ var (
 		EventReasonNodeDrainFailed:             EventLevelWarning,
 		EventReasonTargetDeregisterSucceeded:   EventLevelNormal,
 		EventReasonTargetDeregisterFailed:      EventLevelWarning,
-		EventReasonInstanceDeregisterSucceeded: EventLevelNormal,
-		EventReasonInstanceDeregisterFailed:    EventLevelWarning,
+		EventReasonInstanceDeregisterSucceeded:         EventLevelNormal,
+		EventReasonInstanceDeregisterFailed:            EventLevelWarning,
+		EventReasonHeartbeatTimeoutGracefulTermination: EventLevelWarning,
 	}
 )
 

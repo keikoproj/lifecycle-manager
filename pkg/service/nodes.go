@@ -207,6 +207,109 @@ func drainNodeUtil(node *v1.Node, DrainTimeout int, client kubernetes.Interface)
 	return err
 }
 
+func isDaemonSetPod(pod *v1.Pod) bool {
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "DaemonSet" {
+			return true
+		}
+	}
+	return false
+}
+
+const podListMaxRetries = 3
+
+// listActivePodsOnNode returns non-daemonset, non-terminal pods scheduled on
+// the given node. The List call is retried up to podListMaxRetries times with
+// linear backoff to ride out transient API-server errors.
+func listActivePodsOnNode(
+	kubeClient kubernetes.Interface,
+	nodeName string,
+) ([]v1.Pod, error) {
+	listOpts := metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+	}
+
+	var podList *v1.PodList
+	var err error
+	for attempt := 1; attempt <= podListMaxRetries; attempt++ {
+		podList, err = kubeClient.CoreV1().Pods("").List(context.Background(), listOpts)
+		if err == nil {
+			break
+		}
+		log.Errorf("failed to list pods on node %s (attempt %d/%d): %v", nodeName, attempt, podListMaxRetries, err)
+		if attempt < podListMaxRetries {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods on node %s after %d attempts: %v", nodeName, podListMaxRetries, err)
+	}
+
+	active := make([]v1.Pod, 0, len(podList.Items))
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if isDaemonSetPod(pod) {
+			continue
+		}
+		if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+			continue
+		}
+		active = append(active, *pod)
+	}
+	return active, nil
+}
+
+func deletePodsOnNode(
+	kubeClient kubernetes.Interface,
+	nodeName string,
+	gracePeriodSeconds int64,
+) (int, error) {
+	pods, err := listActivePodsOnNode(kubeClient, nodeName)
+	if err != nil {
+		return 0, err
+	}
+
+	deleted := 0
+	for i := range pods {
+		pod := &pods[i]
+		podGrace := gracePeriodSeconds
+		if pod.Spec.TerminationGracePeriodSeconds != nil && *pod.Spec.TerminationGracePeriodSeconds < podGrace {
+			podGrace = *pod.Spec.TerminationGracePeriodSeconds
+		}
+
+		log.Infof("deleting pod %s/%s on node %s (grace period: %ds)", pod.Namespace, pod.Name, nodeName, podGrace)
+		if deletePodWithRetry(kubeClient, pod.Namespace, pod.Name, podGrace, podListMaxRetries) {
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
+func deletePodWithRetry(kubeClient kubernetes.Interface, namespace, name string, gracePeriodSeconds int64, maxRetries int) bool {
+	deleteOpts := metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriodSeconds,
+	}
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), name, deleteOpts)
+		if err == nil {
+			return true
+		}
+		log.Errorf("failed to delete pod %s/%s (attempt %d/%d): %v", namespace, name, attempt, maxRetries, err)
+		if attempt < maxRetries {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+	}
+	return false
+}
+
+func countActivePods(kubeClient kubernetes.Interface, nodeName string) int {
+	pods, err := listActivePodsOnNode(kubeClient, nodeName)
+	if err != nil {
+		return -1
+	}
+	return len(pods)
+}
+
 func deleteNodeUtil(node *v1.Node, client kubernetes.Interface) error {
 
 	var err error = nil

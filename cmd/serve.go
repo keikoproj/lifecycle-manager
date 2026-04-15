@@ -39,7 +39,8 @@ var (
 	drainTimeoutUnknownSeconds int
 	drainRetryAttempts         int
 	pollingIntervalSeconds     int
-	maxTimeToProcessSeconds    int64
+	maxTimeToProcessSeconds       int64
+	maxTerminationGracePeriod     int64
 
 	// DefaultRetryer is the default retry configuration for some AWS API calls
 	DefaultRetryer = client.DefaultRetryer{
@@ -82,6 +83,7 @@ var serveCmd = &cobra.Command{
 			DrainRetryIntervalSeconds:  int64(drainRetryIntervalSeconds),
 			MaxDrainConcurrency:        semaphore.NewWeighted(maxDrainConcurrency),
 			MaxTimeToProcessSeconds:    int64(maxTimeToProcessSeconds),
+			MaxTerminationGracePeriod:  maxTerminationGracePeriod,
 			DrainRetryAttempts:         uint(drainRetryAttempts),
 			Region:                     region,
 			WithDeregister:             deregisterTargetGroups,
@@ -110,6 +112,7 @@ func init() {
 	serveCmd.Flags().BoolVar(&deregisterTargetGroups, "with-deregister", true, "try to deregister deleting instance from target groups")
 	serveCmd.Flags().StringSliceVar(&deregisterTargetTypes, "deregister-target-types", []string{service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()},
 		fmt.Sprintf("comma separated list of target types to deregister instance from (%s, %s)", service.TargetTypeClassicELB.String(), service.TargetTypeTargetGroup.String()))
+	serveCmd.Flags().Int64Var(&maxTerminationGracePeriod, "max-termination-grace-period", 900, "grace period in seconds to wait for pods to terminate after max-time-to-process is reached")
 	serveCmd.Flags().BoolVar(&refreshExpiredCredentials, "refresh-expired-credentials", false, "refreshes expired credentials (requires shared credentials file)")
 }
 
