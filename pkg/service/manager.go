@@ -51,6 +51,7 @@ type ManagerContext struct {
 	DeregisterTargetTypes      []string
 	MaxDrainConcurrency        *semaphore.Weighted
 	MaxTimeToProcessSeconds    int64
+	MaxTerminationGracePeriod  int64
 }
 
 // Authenticator holds clients for all required APIs

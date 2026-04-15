@@ -127,6 +127,7 @@ time="2020-03-11T07:24:49Z" level=info msg="event ce25c321-ec67-3f0b-c156-a7c1f7
 | log-level | "info" | String | the logging level (info, warning, debug) |
 | max-drain-concurrency | 32 | Int | maximum number of node drains to process in parallel |
 | max-time-to-process | 3600 | Int | max time to spend processing an event |
+| max-termination-grace-period | 900 | Int | grace period in seconds to wait for pods to terminate after max-time-to-process is reached |
 | drain-timeout | 300 | Int | hard time limit for draining healthy nodes |
 | drain-timeout-unknown | 30 | Int | hard time limit for draining nodes that are in unknown state |
 | drain-interval | 30 | Int | interval in seconds for which to retry draining |

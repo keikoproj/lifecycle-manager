@@ -228,3 +228,147 @@ func Test_LabelNodeNegative(t *testing.T) {
 		t.Fatalf("Test_LabelNode: expected error to have occured, %v", err)
 	}
 }
+
+func Test_IsDaemonSetPod(t *testing.T) {
+	t.Log("Test_IsDaemonSetPod: should correctly identify daemonset pods")
+
+	dsPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: "DaemonSet", Name: "my-ds", APIVersion: "apps/v1"},
+			},
+		},
+	}
+	if !isDaemonSetPod(dsPod) {
+		t.Fatal("expected daemonset pod to be identified as such")
+	}
+
+	regularPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: "ReplicaSet", Name: "my-rs", APIVersion: "apps/v1"},
+			},
+		},
+	}
+	if isDaemonSetPod(regularPod) {
+		t.Fatal("expected regular pod not to be identified as daemonset pod")
+	}
+
+	noPod := &v1.Pod{}
+	if isDaemonSetPod(noPod) {
+		t.Fatal("expected pod with no owner references not to be identified as daemonset pod")
+	}
+}
+
+func Test_DeletePodsOnNode(t *testing.T) {
+	t.Log("Test_DeletePodsOnNode: should delete non-daemonset pods and skip daemonset pods")
+	kubeClient := fake.NewSimpleClientset()
+
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+
+	regularPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "regular-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), regularPod, metav1.CreateOptions{})
+
+	dsPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ds-pod",
+			Namespace: "kube-system",
+			OwnerReferences: []metav1.OwnerReference{
+				{Kind: "DaemonSet", Name: "my-ds", APIVersion: "apps/v1"},
+			},
+		},
+		Spec:   v1.PodSpec{NodeName: "test-node"},
+		Status: v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("kube-system").Create(context.Background(), dsPod, metav1.CreateOptions{})
+
+	deleted, err := deletePodsOnNode(kubeClient, "test-node", 900)
+	if err != nil {
+		t.Fatalf("deletePodsOnNode: expected no error, got: %v", err)
+	}
+
+	if deleted != 1 {
+		t.Fatalf("expected 1 pod deleted, got: %d", deleted)
+	}
+
+	remaining, _ := kubeClient.CoreV1().Pods("kube-system").List(context.Background(), metav1.ListOptions{})
+	if len(remaining.Items) != 1 {
+		t.Fatalf("expected daemonset pod to remain, got %d pods", len(remaining.Items))
+	}
+}
+
+func Test_DeletePodsOnNodeCapsGracePeriod(t *testing.T) {
+	t.Log("Test_DeletePodsOnNodeCapsGracePeriod: pod grace period should be capped to maxTerminationGracePeriod")
+	kubeClient := fake.NewSimpleClientset()
+
+	longGrace := int64(600)
+	shortGrace := int64(30)
+
+	longGracePod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "long-grace-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node", TerminationGracePeriodSeconds: &longGrace},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	shortGracePod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "short-grace-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node", TerminationGracePeriodSeconds: &shortGrace},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), longGracePod, metav1.CreateOptions{})
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), shortGracePod, metav1.CreateOptions{})
+
+	deleted, err := deletePodsOnNode(kubeClient, "test-node", 180)
+	if err != nil {
+		t.Fatalf("deletePodsOnNode: expected no error, got: %v", err)
+	}
+
+	if deleted != 2 {
+		t.Fatalf("expected 2 pods deleted, got: %d", deleted)
+	}
+
+	remaining, _ := kubeClient.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
+	if len(remaining.Items) != 0 {
+		t.Fatalf("expected all pods deleted, but %d remain", len(remaining.Items))
+	}
+}
+
+func Test_CountActivePods(t *testing.T) {
+	t.Log("Test_CountActivePods: should count only non-daemonset, active pods")
+	kubeClient := fake.NewSimpleClientset()
+
+	pods := []*v1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "running-pod", Namespace: "default"},
+			Spec:       v1.PodSpec{NodeName: "test-node"},
+			Status:     v1.PodStatus{Phase: v1.PodRunning},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ds-pod", Namespace: "kube-system",
+				OwnerReferences: []metav1.OwnerReference{{Kind: "DaemonSet", Name: "my-ds", APIVersion: "apps/v1"}},
+			},
+			Spec:   v1.PodSpec{NodeName: "test-node"},
+			Status: v1.PodStatus{Phase: v1.PodRunning},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "succeeded-pod", Namespace: "default"},
+			Spec:       v1.PodSpec{NodeName: "test-node"},
+			Status:     v1.PodStatus{Phase: v1.PodSucceeded},
+		},
+	}
+	for _, pod := range pods {
+		kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	}
+
+	count := countActivePods(kubeClient, "test-node")
+	if count != 1 {
+		t.Fatalf("expected 1 active pod, got: %d", count)
+	}
+}

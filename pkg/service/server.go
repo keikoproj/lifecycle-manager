@@ -73,6 +73,7 @@ func (mgr *Manager) Start() {
 	log.Infof("unknown node drain timeout seconds = %v", ctx.DrainTimeoutUnknownSeconds)
 	log.Infof("node drain retry interval seconds = %v", ctx.DrainRetryIntervalSeconds)
 	log.Infof("node drain retry attempts = %v", ctx.DrainRetryAttempts)
+	log.Infof("max termination grace period seconds = %v", ctx.MaxTerminationGracePeriod)
 	log.Infof("with alb deregister = %v", ctx.WithDeregister)
 	log.Infof("deregister target types = %v", ctx.DeregisterTargetTypes)
 
@@ -612,12 +613,16 @@ func (mgr *Manager) drainLoadbalancerTarget(event *LifecycleEvent) error {
 
 func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	var (
-		asgClient = mgr.authenticator.ScalingGroupClient
-		errs      error
+		errs error
 	)
 
-	// send heartbeat at intervals
-	go sendHeartbeat(asgClient, event, mgr.context.MaxTimeToProcessSeconds)
+	go sendHeartbeat(heartbeatConfig{
+		asgClient:                 mgr.authenticator.ScalingGroupClient,
+		kubeClient:                mgr.authenticator.KubernetesClient,
+		event:                     event,
+		maxTimeToProcessSeconds:   mgr.context.MaxTimeToProcessSeconds,
+		maxTerminationGracePeriod: mgr.context.MaxTerminationGracePeriod,
+	})
 
 	// Annotate node with InProgressAnnotationKey = EventBody for resuming in case of crash
 	storeMessage, err := serializeMessage(event.message)
