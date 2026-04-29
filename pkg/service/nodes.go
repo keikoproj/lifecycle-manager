@@ -310,6 +310,27 @@ func countActivePods(kubeClient kubernetes.Interface, nodeName string) int {
 	return len(pods)
 }
 
+// waitForPodsToBeDeletedPollInterval is the polling cadence used by waitForPodsToBeDeleted.
+var waitForPodsToBeDeletedPollInterval = 5 * time.Second
+
+// waitForPodsToBeDeleted polls every waitForPodsToBeDeletedPollInterval until all
+// non-daemonset pods on the node are deleted, or
+// until the timeout expires. Returns true if all such pods are gone within the
+// timeout, false otherwise.
+func waitForPodsToBeDeleted(kubeClient kubernetes.Interface, nodeName string, timeout time.Duration) bool {
+	if timeout <= 0 {
+		return countActivePods(kubeClient, nodeName) == 0
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if countActivePods(kubeClient, nodeName) == 0 {
+			return true
+		}
+		time.Sleep(waitForPodsToBeDeletedPollInterval)
+	}
+	return countActivePods(kubeClient, nodeName) == 0
+}
+
 func deleteNodeUtil(node *v1.Node, client kubernetes.Interface) error {
 
 	var err error = nil

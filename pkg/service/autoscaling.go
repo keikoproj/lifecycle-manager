@@ -7,24 +7,24 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
-	iebackoff "github.com/keikoproj/inverse-exp-backoff"
 	"github.com/keikoproj/lifecycle-manager/pkg/log"
-	"k8s.io/client-go/kubernetes"
 )
 
 type heartbeatConfig struct {
-	asgClient                 autoscalingiface.AutoScalingAPI
-	kubeClient                kubernetes.Interface
-	event                     *LifecycleEvent
-	maxTimeToProcessSeconds   int64
-	maxTerminationGracePeriod int64
+	asgClient               autoscalingiface.AutoScalingAPI
+	event                   *LifecycleEvent
+	maxTimeToProcessSeconds int64
 }
 
+// sendHeartbeat keeps the AWS lifecycle hook alive by periodically calling
+// RecordLifecycleActionHeartbeat. It exits when the main goroutine sets
+// event.eventCompleted (via CompleteEvent or FailEvent), when extendLifecycleAction
+// fails (e.g., the hook has been completed/abandoned by another path), or when
+// the safety cap maxTimeToProcessSeconds is reached.
 func sendHeartbeat(cfg heartbeatConfig) {
 	var (
 		event               = cfg.event
 		client              = cfg.asgClient
-		iterationCount      = 0
 		interval            = event.heartbeatInterval
 		instanceID          = event.EC2InstanceID
 		scalingGroupName    = event.AutoScalingGroupName
@@ -33,111 +33,29 @@ func sendHeartbeat(cfg heartbeatConfig) {
 
 	log.Debugf("scaling-group = %v, maxInterval = %v, heartbeat = %v", scalingGroupName, interval, recommendedInterval)
 
-	maxIterations := int(cfg.maxTimeToProcessSeconds / recommendedInterval)
-
 	startTime := time.Now()
+	deadline := startTime.Add(time.Duration(cfg.maxTimeToProcessSeconds) * time.Second)
 
+	iterationCount := 0
 	for {
-		iterationCount++
-		if iterationCount >= maxIterations {
-			elapsed := time.Since(startTime).Round(time.Second)
-			log.Warnf("%v> heartbeat extended over threshold after %v, beginning graceful pod termination", instanceID, elapsed)
-			handleHeartbeatTimeout(cfg)
-			return
-		}
-
 		if event.eventCompleted {
 			return
 		}
+		if time.Now().After(deadline) {
+			elapsed := time.Since(startTime).Round(time.Second)
+			log.Warnf("%v> heartbeat reached max-time-to-process safety cap after %v; stopping heartbeats (main goroutine appears stuck)", instanceID, elapsed)
+			return
+		}
 
-		log.Infof("%v> sending heartbeat (%v/%v)", instanceID, iterationCount, maxIterations)
-		err := extendLifecycleAction(client, *event)
-		if err != nil {
+		iterationCount++
+		log.Infof("%v> sending heartbeat (iteration %v)", instanceID, iterationCount)
+		if err := extendLifecycleAction(client, *event); err != nil {
 			log.Errorf("%v> failed to send heartbeat for event: %v", instanceID, err)
 			return
 		}
+
 		time.Sleep(time.Duration(recommendedInterval) * time.Second)
 	}
-}
-
-func handleHeartbeatTimeout(cfg heartbeatConfig) {
-	var (
-		event      = cfg.event
-		client     = cfg.asgClient
-		kubeClient = cfg.kubeClient
-		instanceID = event.EC2InstanceID
-		nodeName   = event.referencedNode.Name
-	)
-
-	deleted, err := deletePodsOnNode(kubeClient, nodeName, cfg.maxTerminationGracePeriod)
-	if err != nil {
-		log.Errorf("%v> failed to delete pods on node %s: %v", instanceID, nodeName, err)
-	} else {
-		log.Infof("%v> requested deletion of %d non-daemonset pods on node %s", instanceID, deleted, nodeName)
-	}
-
-	msg := fmt.Sprintf(EventMessageHeartbeatTimeoutGracefulTermination, instanceID, deleted, nodeName)
-	kEvent := newKubernetesEvent(EventReasonHeartbeatTimeoutGracefulTermination, getMessageFields(event, msg))
-	publishKubernetesEvent(kubeClient, kEvent)
-
-	waitForPodsWithHeartbeat(cfg)
-
-	if event.eventCompleted {
-		log.Infof("%v> event already completed by main goroutine, skipping ABANDON", instanceID)
-	} else {
-		log.Warnf("%v> completing lifecycle action with ABANDON after timeout", instanceID)
-		if err := completeLifecycleAction(client, *event, AbandonAction); err != nil {
-			log.Errorf("%v> failed to complete lifecycle action with ABANDON: %v", instanceID, err)
-		}
-	}
-
-	event.SetEventCompleted(true)
-}
-
-func waitForPodsWithHeartbeat(cfg heartbeatConfig) {
-	var (
-		event      = cfg.event
-		client     = cfg.asgClient
-		kubeClient = cfg.kubeClient
-		instanceID = event.EC2InstanceID
-		nodeName   = event.referencedNode.Name
-		timeout    = time.Duration(cfg.maxTerminationGracePeriod) * time.Second
-		maxDelay   = WaiterMaxDelay
-		minDelay   = WaiterMinDelay
-	)
-
-	if timeout <= 0 {
-		return
-	}
-	if maxDelay > timeout {
-		maxDelay = timeout / 2
-	}
-	if minDelay > maxDelay {
-		minDelay = maxDelay
-	}
-
-	ieb, err := iebackoff.NewIEBWithTimeout(maxDelay, minDelay, timeout, 0.5, time.Now())
-	if err != nil {
-		log.Errorf("%v> failed to create inverse-exp-backoff: %v", instanceID, err)
-		return
-	}
-
-	for ; err == nil; err = ieb.Next() {
-		if err := extendLifecycleAction(client, *event); err != nil {
-			log.Errorf("%v> failed to send heartbeat during termination grace period: %v", instanceID, err)
-		}
-
-		active := countActivePods(kubeClient, nodeName)
-		if active == 0 {
-			log.Infof("%v> all non-daemonset pods terminated on node %s", instanceID, nodeName)
-			return
-		}
-		if active > 0 {
-			log.Infof("%v> waiting for %d non-daemonset pods to terminate on node %s", instanceID, active, nodeName)
-		}
-	}
-
-	log.Warnf("%v> termination grace period expired with pods still running on node %s", instanceID, nodeName)
 }
 
 func getHookHeartbeatInterval(client autoscalingiface.AutoScalingAPI, lifecycleHookName, scalingGroupName string) (int64, error) {

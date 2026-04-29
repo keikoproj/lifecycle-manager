@@ -1,16 +1,12 @@
 package service
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 type stubAutoscaling struct {
@@ -46,9 +42,8 @@ func (e *LifecycleEvent) _setEventCompletedAfter(value bool, seconds int64) {
 }
 
 func Test_SendHeartbeatPositive(t *testing.T) {
-	t.Log("Test_SendHeartbeatPositive: If drain is not complete, a heartbeat should be sent")
+	t.Log("Test_SendHeartbeatPositive: If event is not completed, heartbeats should be sent until eventCompleted is set")
 	stubber := &stubAutoscaling{}
-	kubeClient := fake.NewSimpleClientset()
 	event := &LifecycleEvent{
 		AutoScalingGroupName: "my-asg",
 		EC2InstanceID:        "i-1234567890",
@@ -60,23 +55,23 @@ func Test_SendHeartbeatPositive(t *testing.T) {
 
 	go event._setEventCompletedAfter(true, 2)
 	sendHeartbeat(heartbeatConfig{
-		asgClient:                 stubber,
-		kubeClient:                kubeClient,
-		event:                     event,
-		maxTimeToProcessSeconds:   3600,
-		maxTerminationGracePeriod: 900,
+		asgClient:               stubber,
+		event:                   event,
+		maxTimeToProcessSeconds: 3600,
 	})
 	expectedHeartbeatCalls := 3
 
 	if stubber.timesCalledRecordLifecycleActionHeartbeat != expectedHeartbeatCalls {
 		t.Fatalf("expected timesCalledRecordLifecycleActionHeartbeat: %v, got: %v", expectedHeartbeatCalls, stubber.timesCalledRecordLifecycleActionHeartbeat)
 	}
+	if stubber.timesCalledCompleteLifecycleAction != 0 {
+		t.Fatalf("expected sendHeartbeat NOT to call CompleteLifecycleAction, got: %v calls", stubber.timesCalledCompleteLifecycleAction)
+	}
 }
 
 func Test_SendHeartbeatNegative(t *testing.T) {
-	t.Log("Test_SendHeartbeatNegative: If event is completed, heartbeat should not be sent")
+	t.Log("Test_SendHeartbeatNegative: If event is already completed, heartbeat should not be sent")
 	stubber := &stubAutoscaling{}
-	kubeClient := fake.NewSimpleClientset()
 	event := &LifecycleEvent{
 		AutoScalingGroupName: "my-asg",
 		EC2InstanceID:        "i-1234567890",
@@ -87,11 +82,9 @@ func Test_SendHeartbeatNegative(t *testing.T) {
 	}
 
 	sendHeartbeat(heartbeatConfig{
-		asgClient:                 stubber,
-		kubeClient:                kubeClient,
-		event:                     event,
-		maxTimeToProcessSeconds:   3600,
-		maxTerminationGracePeriod: 900,
+		asgClient:               stubber,
+		event:                   event,
+		maxTimeToProcessSeconds: 3600,
 	})
 	expectedHeartbeatCalls := 0
 
@@ -100,118 +93,37 @@ func Test_SendHeartbeatNegative(t *testing.T) {
 	}
 }
 
-func Test_SendHeartbeatTimeoutDeletesPods(t *testing.T) {
-	t.Log("Test_SendHeartbeatTimeoutDeletesPods: When max-time-to-process is reached, pods should be deleted and ABANDON called")
+func Test_SendHeartbeatExitsAtMaxTimeToProcess(t *testing.T) {
+	t.Log("Test_SendHeartbeatExitsAtMaxTimeToProcess: when max-time-to-process safety cap is reached, heartbeat exits without calling CompleteLifecycleAction")
 	stubber := &stubAutoscaling{}
-	kubeClient := fake.NewSimpleClientset()
-
-	node := &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
-	}
-	kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
-
-	pod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
-		},
-		Spec: v1.PodSpec{NodeName: "test-node"},
-	}
-	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, metav1.CreateOptions{})
-
 	event := &LifecycleEvent{
 		AutoScalingGroupName: "my-asg",
 		EC2InstanceID:        "i-1234567890",
 		LifecycleActionToken: "some-token-1234",
 		LifecycleHookName:    "my-hook",
 		heartbeatInterval:    2,
-		referencedNode:       *node,
 	}
 
+	start := time.Now()
 	sendHeartbeat(heartbeatConfig{
-		asgClient:                 stubber,
-		kubeClient:                kubeClient,
-		event:                     event,
-		maxTimeToProcessSeconds:   1,
-		maxTerminationGracePeriod: 1,
+		asgClient:               stubber,
+		event:                   event,
+		maxTimeToProcessSeconds: 1,
 	})
+	elapsed := time.Since(start)
 
-	if !event.eventCompleted {
-		t.Fatal("expected eventCompleted to be true after timeout")
+	if stubber.timesCalledCompleteLifecycleAction != 0 {
+		t.Fatalf("expected sendHeartbeat NOT to call CompleteLifecycleAction, got: %v calls", stubber.timesCalledCompleteLifecycleAction)
 	}
-
-	if stubber.timesCalledCompleteLifecycleAction != 1 {
-		t.Fatalf("expected CompleteLifecycleAction called once, got: %v", stubber.timesCalledCompleteLifecycleAction)
+	if event.eventCompleted {
+		t.Fatal("expected event.eventCompleted to remain false (sendHeartbeat must not own the termination decision)")
 	}
-
-	if stubber.lastCompleteAction != AbandonAction {
-		t.Fatalf("expected ABANDON action, got: %v", stubber.lastCompleteAction)
+	// The heartbeat may send 1 heartbeat before the deadline check sees expiry on the next loop iteration.
+	if stubber.timesCalledRecordLifecycleActionHeartbeat > 1 {
+		t.Fatalf("expected at most 1 heartbeat before safety cap fires, got: %v", stubber.timesCalledRecordLifecycleActionHeartbeat)
 	}
-
-	pods, _ := kubeClient.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
-	if len(pods.Items) != 0 {
-		t.Fatalf("expected pod to be deleted, but %d pods remain", len(pods.Items))
-	}
-}
-
-func Test_SendHeartbeatTimeoutSkipsDaemonSetPods(t *testing.T) {
-	t.Log("Test_SendHeartbeatTimeoutSkipsDaemonSetPods: DaemonSet pods should not be deleted on timeout")
-	stubber := &stubAutoscaling{}
-	kubeClient := fake.NewSimpleClientset()
-
-	node := &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
-	}
-	kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
-
-	dsPod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ds-pod",
-			Namespace: "kube-system",
-			OwnerReferences: []metav1.OwnerReference{
-				{Kind: "DaemonSet", Name: "my-ds", APIVersion: "apps/v1"},
-			},
-		},
-		Spec: v1.PodSpec{NodeName: "test-node"},
-	}
-	kubeClient.CoreV1().Pods("kube-system").Create(context.Background(), dsPod, metav1.CreateOptions{})
-
-	regularPod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "regular-pod",
-			Namespace: "default",
-		},
-		Spec: v1.PodSpec{NodeName: "test-node"},
-	}
-	kubeClient.CoreV1().Pods("default").Create(context.Background(), regularPod, metav1.CreateOptions{})
-
-	event := &LifecycleEvent{
-		AutoScalingGroupName: "my-asg",
-		EC2InstanceID:        "i-1234567890",
-		LifecycleActionToken: "some-token-1234",
-		LifecycleHookName:    "my-hook",
-		heartbeatInterval:    2,
-		referencedNode:       *node,
-	}
-
-	sendHeartbeat(heartbeatConfig{
-		asgClient:                 stubber,
-		kubeClient:                kubeClient,
-		event:                     event,
-		maxTimeToProcessSeconds:   1,
-		maxTerminationGracePeriod: 1,
-	})
-
-	dsPods, _ := kubeClient.CoreV1().Pods("kube-system").List(context.Background(), metav1.ListOptions{})
-	if len(dsPods.Items) != 1 {
-		t.Fatalf("expected daemonset pod to survive, but got %d pods", len(dsPods.Items))
-	}
-
-	regularPods, _ := kubeClient.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
-	if len(regularPods.Items) != 0 {
-		t.Fatalf("expected regular pod to be deleted, but got %d pods", len(regularPods.Items))
+	if elapsed > 5*time.Second {
+		t.Fatalf("expected sendHeartbeat to exit promptly after safety cap, took: %v", elapsed)
 	}
 }
 
