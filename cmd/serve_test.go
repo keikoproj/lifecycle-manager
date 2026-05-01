@@ -87,7 +87,7 @@ func Test_validateServeConfig_maxTimeBelowCeiling(t *testing.T) {
 	maxTimeToProcessSeconds = 10800
 
 	if err := validateServeConfig(); err == nil {
-		t.Fatal("expected error when max-time-to-process is below ceiling (11730s)")
+		t.Fatal("expected error when max-time-to-process is below ceiling (3×3600 + 900 + EscalateDrainFailureWaitSlackSeconds)")
 	}
 }
 

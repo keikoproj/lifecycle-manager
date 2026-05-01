@@ -29,7 +29,7 @@ func init() {
 	WaiterMaxAttempts = 3
 	NodeAgeCacheTTL = 100
 	waitForPodsToBeDeletedPollInterval = 10 * time.Millisecond
-	escalateDrainFailureWaitSlackSeconds = 30
+	EscalateDrainFailureWaitSlackSeconds = 30
 }
 
 func _completeEventAfter(event *LifecycleEvent, t time.Duration) {
@@ -666,8 +666,8 @@ func Test_EscalateDrainFailureNegativeGrace(t *testing.T) {
 
 func Test_EscalateDrainFailurePodsRemainAfterDelete(t *testing.T) {
 	t.Log("Test_EscalateDrainFailurePodsRemainAfterDelete: simulates stubborn pod — DELETE succeeds but pod never leaves the API (wait times out)")
-	defer func() { escalateDrainFailureWaitSlackSeconds = 30 }()
-	escalateDrainFailureWaitSlackSeconds = 0
+	defer func() { EscalateDrainFailureWaitSlackSeconds = 30 }()
+	EscalateDrainFailureWaitSlackSeconds = 0
 
 	kubeClient := fake.NewSimpleClientset()
 	kubeClient.PrependReactor("delete", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {

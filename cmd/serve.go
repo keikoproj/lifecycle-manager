@@ -146,15 +146,15 @@ func validateServeConfig() error {
 
 	// Ensure --max-time-to-process is large enough to outlive the worst-case
 	// main-path duration: drain-retries x drain-timeout (drain exhaustion) plus
-	// max-termination-grace-period plus a 30s slack. If it is not, the heartbeat
-	// goroutine could exit while drainNodeTarget is still inside the graceful
-	// force-delete escalation, causing the AWS lifecycle hook to time out and
-	// ABANDON the instance.
-	const maxTimeSlackSeconds int64 = 30
-	ceiling := int64(drainRetryAttempts)*int64(drainTimeoutSeconds) + maxTerminationGracePeriod + maxTimeSlackSeconds
+	// max-termination-grace-period plus the escalation wait slack. If it is not,
+	// the heartbeat goroutine could exit while drainNodeTarget is still inside
+	// the graceful force-delete escalation, causing the AWS lifecycle hook to
+	// time out and ABANDON the instance.
+	drainFailureWaitSlackSeconds := service.EscalateDrainFailureWaitSlackSeconds
+	ceiling := int64(drainRetryAttempts)*int64(drainTimeoutSeconds) + maxTerminationGracePeriod + drainFailureWaitSlackSeconds
 	if maxTimeToProcessSeconds < ceiling {
-		return fmt.Errorf("--max-time-to-process (%ds) must be >= (drain-retries x drain-timeout) + max-termination-grace-period + 30s = %ds",
-			maxTimeToProcessSeconds, ceiling)
+		return fmt.Errorf("--max-time-to-process (%ds) must be >= (drain-retries x drain-timeout) + max-termination-grace-period + %ds = %ds",
+			maxTimeToProcessSeconds, drainFailureWaitSlackSeconds, ceiling)
 	}
 	return nil
 }
