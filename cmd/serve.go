@@ -39,8 +39,8 @@ var (
 	drainTimeoutUnknownSeconds int
 	drainRetryAttempts         int
 	pollingIntervalSeconds     int
-	maxTimeToProcessSeconds       int64
-	maxTerminationGracePeriod     int64
+	maxTimeToProcessSeconds    int64
+	maxTerminationGracePeriod  int64
 
 	// DefaultRetryer is the default retry configuration for some AWS API calls
 	DefaultRetryer = client.DefaultRetryer{
@@ -116,30 +116,51 @@ func init() {
 	serveCmd.Flags().BoolVar(&refreshExpiredCredentials, "refresh-expired-credentials", false, "refreshes expired credentials (requires shared credentials file)")
 }
 
-func validateServe() {
+// validateServeConfig returns a descriptive error if serve flags are invalid.
+func validateServeConfig() error {
 	if localMode != "" {
 		if _, err := os.Stat(localMode); os.IsNotExist(err) {
-			log.Fatalf("provided kubeconfig path does not exist")
+			return fmt.Errorf("provided kubeconfig path does not exist")
 		}
 	}
 
 	if kubectlLocalPath != "" {
 		if _, err := os.Stat(kubectlLocalPath); os.IsNotExist(err) {
-			log.Fatalf("provided kubectl path does not exist")
+			return fmt.Errorf("provided kubectl path does not exist")
 		}
 	} else {
-		log.Fatalf("must provide kubectl path")
+		return fmt.Errorf("must provide kubectl path")
 	}
 
 	if region == "" {
-		log.Fatalf("must provide valid AWS region name")
+		return fmt.Errorf("must provide valid AWS region name")
 	}
 
 	if queueName == "" {
-		log.Fatalf("must provide valid SQS queue name")
+		return fmt.Errorf("must provide valid SQS queue name")
 	}
 
 	if maxDrainConcurrency < 1 {
-		log.Fatalf("--max-drain-concurrency must be set to a value higher than 0")
+		return fmt.Errorf("--max-drain-concurrency must be set to a value higher than 0")
+	}
+
+	// Ensure --max-time-to-process is large enough to outlive the worst-case
+	// main-path duration: drain-retries x drain-timeout (drain exhaustion) plus
+	// max-termination-grace-period plus the escalation wait slack. If it is not,
+	// the heartbeat goroutine could exit while drainNodeTarget is still inside
+	// the graceful force-delete escalation, causing the AWS lifecycle hook to
+	// time out and ABANDON the instance.
+	drainFailureWaitSlackSeconds := service.EscalateDrainFailureWaitSlackSeconds
+	ceiling := int64(drainRetryAttempts)*int64(drainTimeoutSeconds) + maxTerminationGracePeriod + drainFailureWaitSlackSeconds
+	if maxTimeToProcessSeconds < ceiling {
+		return fmt.Errorf("--max-time-to-process (%ds) must be >= (drain-retries x drain-timeout) + max-termination-grace-period + %ds = %ds",
+			maxTimeToProcessSeconds, drainFailureWaitSlackSeconds, ceiling)
+	}
+	return nil
+}
+
+func validateServe() {
+	if err := validateServeConfig(); err != nil {
+		log.Fatalf("%v", err)
 	}
 }

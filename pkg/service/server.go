@@ -10,6 +10,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -267,14 +268,67 @@ func (mgr *Manager) drainNodeTarget(event *LifecycleEvent) error {
 		failMsg := fmt.Sprintf(EventMessageNodeDrainFailed, event.referencedNode.Name, err)
 		kEvent := newKubernetesEvent(EventMessageNodeDrainFailed, getMessageFields(event, failMsg))
 		publishKubernetesEvent(kubeClient, kEvent)
-		return err
+
+		// Escalate: drain exhausted its retries (typically PDB-blocked or pod
+		// ignoring SIGTERM). Force-delete remaining non-daemonset pods using
+		// the capped MaxTerminationGracePeriod and wait for Kubernetes to
+		// enforce the grace deadline (SIGTERM -> SIGKILL). Returning nil here
+		// means handleEvent will proceed to LB deregister and node delete,
+		// resulting in CompleteEvent -> CONTINUE rather than FailEvent -> ABANDON.
+		if escalateErr := escalateDrainFailure(event, kubeClient, ctx.MaxTerminationGracePeriod); escalateErr != nil {
+			return escalateErr
+		}
+	} else {
+		log.Infof("%v> completed drain for node/%v", event.EC2InstanceID, event.referencedNode.Name)
 	}
-	log.Infof("%v> completed drain for node/%v", event.EC2InstanceID, event.referencedNode.Name)
+
 	event.SetDrainCompleted(true)
 	metrics.AddCounter(SuccessfulNodeDrainTotalMetric, 1)
 
 	kEvent := newKubernetesEvent(EventReasonNodeDrainSucceeded, getMessageFields(event, successMsg))
 	publishKubernetesEvent(kubeClient, kEvent)
+	return nil
+}
+
+// EscalateDrainFailureWaitSlackSeconds is added to gracePeriod when waiting for
+// pod objects to disappear after force-delete (API delay after kubelet SIGKILL).
+var EscalateDrainFailureWaitSlackSeconds int64 = 30
+
+// escalateDrainFailure attempts to recover from a drain failure by force-deleting
+// non-daemonset pods on the node with the capped grace period, then waiting for
+// Kubernetes to fully terminate them (SIGTERM -> SIGKILL at grace boundary).
+// Returns nil if pods are gone within (grace + EscalateDrainFailureWaitSlackSeconds);
+// returns an error otherwise, in which case the caller should propagate it so
+// handleEvent fails the lifecycle hook with ABANDON.
+func escalateDrainFailure(event *LifecycleEvent, kubeClient kubernetes.Interface, gracePeriod int64) error {
+	instanceID := event.EC2InstanceID
+	nodeName := event.referencedNode.Name
+
+	if gracePeriod <= 0 {
+		log.Warnf("%v> drain failed and max-termination-grace-period is %ds; not escalating", instanceID, gracePeriod)
+		return fmt.Errorf("drain failed and graceful escalation is disabled (max-termination-grace-period <= 0)")
+	}
+
+	log.Warnf("%v> drain failed; escalating to graceful force-delete (grace=%ds) on node %v", instanceID, gracePeriod, nodeName)
+	deleted, derr := deletePodsOnNode(kubeClient, nodeName, gracePeriod)
+	if derr != nil {
+		log.Errorf("%v> graceful force-delete failed: %v", instanceID, derr)
+		return fmt.Errorf("graceful force-delete failed after drain failure: %v", derr)
+	}
+
+	msg := fmt.Sprintf(EventMessageGracefulPodDeletionAfterDrainFailed, instanceID, deleted, nodeName)
+	publishKubernetesEvent(kubeClient,
+		newKubernetesEvent(EventReasonGracefulPodDeletionAfterDrainFailed, getMessageFields(event, msg)))
+
+	waitSeconds := gracePeriod + EscalateDrainFailureWaitSlackSeconds
+	waitTimeout := time.Duration(waitSeconds) * time.Second
+	if !waitForPodsToBeDeleted(kubeClient, nodeName, waitTimeout) {
+		log.Errorf("%v> pods still present after %ds graceful force-delete window on node %v",
+			instanceID, waitSeconds, nodeName)
+		return fmt.Errorf("pods still present after %ds graceful force-delete window", waitSeconds)
+	}
+
+	log.Infof("%v> graceful force-delete succeeded after drain failure on node %v", instanceID, nodeName)
 	return nil
 }
 
@@ -617,11 +671,9 @@ func (mgr *Manager) handleEvent(event *LifecycleEvent) error {
 	)
 
 	go sendHeartbeat(heartbeatConfig{
-		asgClient:                 mgr.authenticator.ScalingGroupClient,
-		kubeClient:                mgr.authenticator.KubernetesClient,
-		event:                     event,
-		maxTimeToProcessSeconds:   mgr.context.MaxTimeToProcessSeconds,
-		maxTerminationGracePeriod: mgr.context.MaxTerminationGracePeriod,
+		asgClient:               mgr.authenticator.ScalingGroupClient,
+		event:                   event,
+		maxTimeToProcessSeconds: mgr.context.MaxTimeToProcessSeconds,
 	})
 
 	// Annotate node with InProgressAnnotationKey = EventBody for resuming in case of crash

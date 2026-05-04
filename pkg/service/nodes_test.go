@@ -7,7 +7,9 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 var (
@@ -336,6 +338,66 @@ func Test_DeletePodsOnNodeCapsGracePeriod(t *testing.T) {
 	remaining, _ := kubeClient.CoreV1().Pods("default").List(context.Background(), metav1.ListOptions{})
 	if len(remaining.Items) != 0 {
 		t.Fatalf("expected all pods deleted, but %d remain", len(remaining.Items))
+	}
+}
+
+func Test_DeletePodsOnNodeDeleteUsesEffectiveGracePeriod(t *testing.T) {
+	t.Log("Test_DeletePodsOnNodeDeleteUsesEffectiveGracePeriod: DELETE uses min(pod.Spec.TerminationGracePeriodSeconds, max) — short pod grace below 900s cap, long pod grace capped to max")
+	var graceSeen []int64
+	kubeClient := fake.NewSimpleClientset()
+	kubeClient.PrependReactor("delete", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		if da, ok := action.(k8stesting.DeleteAction); ok {
+			if g := da.GetDeleteOptions().GracePeriodSeconds; g != nil {
+				graceSeen = append(graceSeen, *g)
+			}
+		}
+		return false, nil, nil
+	})
+
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+
+	shortGrace := int64(45)
+	longGrace := int64(1200)
+	p1 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "short-grace", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node", TerminationGracePeriodSeconds: &shortGrace},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	p2 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "long-grace", Namespace: "ns2"},
+		Spec:       v1.PodSpec{NodeName: "test-node", TerminationGracePeriodSeconds: &longGrace},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), p1, metav1.CreateOptions{})
+	kubeClient.CoreV1().Pods("ns2").Create(context.Background(), p2, metav1.CreateOptions{})
+
+	deleted, err := deletePodsOnNode(kubeClient, "test-node", 900)
+	if err != nil {
+		t.Fatalf("deletePodsOnNode: %v", err)
+	}
+	if deleted != 2 {
+		t.Fatalf("expected 2 pods deleted, got %d", deleted)
+	}
+	if len(graceSeen) != 2 {
+		t.Fatalf("expected 2 delete calls observed, got %d graces: %v", len(graceSeen), graceSeen)
+	}
+	// Order follows list iteration; both values must appear exactly once.
+	var has45, has900 bool
+	for _, g := range graceSeen {
+		switch g {
+		case 45:
+			has45 = true
+		case 900:
+			has900 = true
+		default:
+			t.Errorf("unexpected grace period passed to Delete: %d", g)
+		}
+	}
+	if !has45 || !has900 {
+		t.Fatalf("expected graces 45 and 900, got %v", graceSeen)
 	}
 }
 

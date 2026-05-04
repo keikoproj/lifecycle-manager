@@ -8,6 +8,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	apimachinery_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -26,6 +28,8 @@ func init() {
 	WaiterMaxDelay = 2 * time.Second
 	WaiterMaxAttempts = 3
 	NodeAgeCacheTTL = 100
+	waitForPodsToBeDeletedPollInterval = 10 * time.Millisecond
+	EscalateDrainFailureWaitSlackSeconds = 30
 }
 
 func _completeEventAfter(event *LifecycleEvent, t time.Duration) {
@@ -534,4 +538,268 @@ func Test_Worker(t *testing.T) {
 		t.Fatalf("expected completed events: %v, got: %v", expectedCompletedEvents, mgr.completedEvents)
 	}
 
+}
+
+func Test_EscalateDrainFailureSuccess(t *testing.T) {
+	t.Log("Test_EscalateDrainFailureSuccess: drain failed -> escalation force-deletes pods, returns nil")
+	kubeClient := fake.NewSimpleClientset()
+
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	pod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, apimachinery_v1.CreateOptions{})
+
+	event := &LifecycleEvent{
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-1234567890",
+		LifecycleHookName:    "my-hook",
+		referencedNode:       *node,
+	}
+
+	if err := escalateDrainFailure(event, kubeClient, 1); err != nil {
+		t.Fatalf("expected escalateDrainFailure to succeed, got: %v", err)
+	}
+
+	pods, _ := kubeClient.CoreV1().Pods("default").List(context.Background(), apimachinery_v1.ListOptions{})
+	if len(pods.Items) != 0 {
+		t.Fatalf("expected pod to be deleted by escalation, but %d pods remain", len(pods.Items))
+	}
+}
+
+func Test_EscalateDrainFailureDaemonSetSurvives(t *testing.T) {
+	t.Log("Test_EscalateDrainFailureDaemonSetSurvives: DaemonSet pods are not deleted during escalation")
+	kubeClient := fake.NewSimpleClientset()
+
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	dsPod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{
+			Name:      "ds-pod",
+			Namespace: "kube-system",
+			OwnerReferences: []apimachinery_v1.OwnerReference{
+				{Kind: "DaemonSet", Name: "my-ds", APIVersion: "apps/v1"},
+			},
+		},
+		Spec: v1.PodSpec{NodeName: "test-node"},
+	}
+	kubeClient.CoreV1().Pods("kube-system").Create(context.Background(), dsPod, apimachinery_v1.CreateOptions{})
+
+	regularPod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "regular-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), regularPod, apimachinery_v1.CreateOptions{})
+
+	event := &LifecycleEvent{
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-1234567890",
+		LifecycleHookName:    "my-hook",
+		referencedNode:       *node,
+	}
+
+	if err := escalateDrainFailure(event, kubeClient, 1); err != nil {
+		t.Fatalf("expected escalateDrainFailure to succeed, got: %v", err)
+	}
+
+	dsPods, _ := kubeClient.CoreV1().Pods("kube-system").List(context.Background(), apimachinery_v1.ListOptions{})
+	if len(dsPods.Items) != 1 {
+		t.Fatalf("expected daemonset pod to survive escalation, got %d pods", len(dsPods.Items))
+	}
+	regularPods, _ := kubeClient.CoreV1().Pods("default").List(context.Background(), apimachinery_v1.ListOptions{})
+	if len(regularPods.Items) != 0 {
+		t.Fatalf("expected regular pod to be deleted by escalation, got %d pods", len(regularPods.Items))
+	}
+}
+
+func Test_EscalateDrainFailureGracePeriodZero(t *testing.T) {
+	t.Log("Test_EscalateDrainFailureGracePeriodZero: when grace period <= 0, escalation refuses to run and returns an error")
+	kubeClient := fake.NewSimpleClientset()
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	event := &LifecycleEvent{
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-1234567890",
+		LifecycleHookName:    "my-hook",
+		referencedNode:       *node,
+	}
+
+	if err := escalateDrainFailure(event, kubeClient, 0); err == nil {
+		t.Fatal("expected escalateDrainFailure to return an error when grace period is 0, got nil")
+	}
+}
+
+func Test_EscalateDrainFailureNegativeGrace(t *testing.T) {
+	t.Log("Test_EscalateDrainFailureNegativeGrace: negative max-termination-grace-period is treated as disabled")
+	kubeClient := fake.NewSimpleClientset()
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	event := &LifecycleEvent{
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-1234567890",
+		LifecycleHookName:    "my-hook",
+		referencedNode:       *node,
+	}
+
+	if err := escalateDrainFailure(event, kubeClient, -1); err == nil {
+		t.Fatal("expected escalateDrainFailure to return an error when grace period is negative, got nil")
+	}
+}
+
+func Test_EscalateDrainFailurePodsRemainAfterDelete(t *testing.T) {
+	t.Log("Test_EscalateDrainFailurePodsRemainAfterDelete: simulates stubborn pod — DELETE succeeds but pod never leaves the API (wait times out)")
+	defer func() { EscalateDrainFailureWaitSlackSeconds = 30 }()
+	EscalateDrainFailureWaitSlackSeconds = 0
+
+	kubeClient := fake.NewSimpleClientset()
+	kubeClient.PrependReactor("delete", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		// Succeed without removing the pod from the fake store (stubborn pod / broken API semantics).
+		return true, nil, nil
+	})
+
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	pod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "stuck-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, apimachinery_v1.CreateOptions{})
+
+	event := &LifecycleEvent{
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-1234567890",
+		LifecycleHookName:    "my-hook",
+		referencedNode:       *node,
+	}
+
+	err := escalateDrainFailure(event, kubeClient, 2)
+	if err == nil {
+		t.Fatal("expected escalateDrainFailure to fail when pods never disappear, got nil")
+	}
+}
+
+func Test_EscalateDrainFailureProductionLikeGraceHappyPath(t *testing.T) {
+	t.Log("Test_EscalateDrainFailureProductionLikeGraceHappyPath: max grace 900 with pod TGP 1200 — DELETE caps at 900, fake removes pod immediately so wait succeeds (e2e stubborn-wait is integration-only)")
+	kubeClient := fake.NewSimpleClientset()
+
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	longGrace := int64(1200)
+	pod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "long-tgp-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node", TerminationGracePeriodSeconds: &longGrace},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, apimachinery_v1.CreateOptions{})
+
+	event := &LifecycleEvent{
+		AutoScalingGroupName: "my-asg",
+		EC2InstanceID:        "i-1234567890",
+		LifecycleHookName:    "my-hook",
+		referencedNode:       *node,
+	}
+
+	if err := escalateDrainFailure(event, kubeClient, 900); err != nil {
+		t.Fatalf("expected escalation to succeed when API removes pod after delete: %v", err)
+	}
+}
+
+func Test_WaitForPodsToBeDeletedAlreadyGone(t *testing.T) {
+	t.Log("Test_WaitForPodsToBeDeletedAlreadyGone: returns true immediately when no pods exist")
+	kubeClient := fake.NewSimpleClientset()
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+
+	if !waitForPodsToBeDeleted(kubeClient, "test-node", 1*time.Second) {
+		t.Fatal("expected waitForPodsToBeDeleted to return true when there are no active pods")
+	}
+}
+
+func Test_WaitForPodsToBeDeletedTimeout(t *testing.T) {
+	t.Log("Test_WaitForPodsToBeDeletedTimeout: returns false when a pod is still present after the timeout")
+	kubeClient := fake.NewSimpleClientset()
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+	pod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "stuck-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, apimachinery_v1.CreateOptions{})
+
+	if waitForPodsToBeDeleted(kubeClient, "test-node", 50*time.Millisecond) {
+		t.Fatal("expected waitForPodsToBeDeleted to return false while the pod is still present")
+	}
+}
+
+func Test_WaitForPodsToBeDeletedIgnoresSucceededPods(t *testing.T) {
+	t.Log("Test_WaitForPodsToBeDeletedIgnoresSucceededPods: terminal pods are not counted as active")
+	kubeClient := fake.NewSimpleClientset()
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+	pod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "done-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+		Status:     v1.PodStatus{Phase: v1.PodSucceeded},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, apimachinery_v1.CreateOptions{})
+
+	if !waitForPodsToBeDeleted(kubeClient, "test-node", 500*time.Millisecond) {
+		t.Fatal("expected waitForPodsToBeDeleted true when only succeeded pods exist on node")
+	}
+}
+
+func Test_WaitForPodsToBeDeletedZeroTimeoutWithRunningPod(t *testing.T) {
+	t.Log("Test_WaitForPodsToBeDeletedZeroTimeoutWithRunningPod: timeout<=0 performs a single check")
+	kubeClient := fake.NewSimpleClientset()
+	node := &v1.Node{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "test-node"},
+		Spec:       v1.NodeSpec{ProviderID: "aws:///us-west-2a/i-1234567890"},
+	}
+	kubeClient.CoreV1().Nodes().Create(context.Background(), node, apimachinery_v1.CreateOptions{})
+	pod := &v1.Pod{
+		ObjectMeta: apimachinery_v1.ObjectMeta{Name: "running-pod", Namespace: "default"},
+		Spec:       v1.PodSpec{NodeName: "test-node"},
+		Status:     v1.PodStatus{Phase: v1.PodRunning},
+	}
+	kubeClient.CoreV1().Pods("default").Create(context.Background(), pod, apimachinery_v1.CreateOptions{})
+
+	if waitForPodsToBeDeleted(kubeClient, "test-node", 0) {
+		t.Fatal("expected false for zero timeout while a running pod exists")
+	}
 }
